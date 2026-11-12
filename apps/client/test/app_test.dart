@@ -17,7 +17,9 @@ void main() {
     await tester.pumpWidget(const RouteLoomApp());
     await tester.pumpAndSettle();
     expect(find.text('Not connected'), findsOneWidget);
-    final button = tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Connect'));
+    final button = tester.widget<FilledButton>(
+      find.byKey(const Key('connect-button')),
+    );
     expect(button.onPressed, isNull);
     expect(find.text('Developer preview'), findsOneWidget);
   });
@@ -39,7 +41,9 @@ void main() {
     expect(find.text('Privacy by design'), findsOneWidget);
   });
   for (final platform in clientPlatforms) {
-    testWidgets('interface renders on ' + platformName(platform), (tester) async {
+    testWidgets('interface renders on ' + platformName(platform), (
+      tester,
+    ) async {
       debugDefaultTargetPlatformOverride = platform;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
       await tester.pumpWidget(const RouteLoomApp());

@@ -35,7 +35,7 @@ flutter run
 
 The bootstrap script generates official runners for all five platforms in .local/client-runners, then copies missing runners into apps/client. Existing native edits are preserved. The generated runners are the starting point for native integration, not completed VPN adapters. The app never requests VPN permission in this build.
 
-Translation source: lib/l10n/app_en.arb and app_zh_CN.arb. Generated localization files are ignored. Language selection currently lasts for the application session; persistence is future work.
+Translation source: lib/l10n/app_en.arb and app_zh.arb. Generated localization files are ignored. Language selection currently lasts for the application session; persistence is future work.
 
 ## Website
 

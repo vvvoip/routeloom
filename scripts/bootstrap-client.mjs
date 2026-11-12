@@ -6,10 +6,14 @@ import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const temporary=path.join(root,'.local','client-runners');
 await mkdir(temporary,{recursive:true});
-const result=spawnSync(process.platform==='win32'?'flutter.bat':'flutter',[
- 'create','--empty','--no-pub','--project-name','routeloom',
- '--org','org.routeloom','--platforms=windows,macos,linux,android,ios',temporary,
-],{stdio:'inherit',shell:process.platform==='win32'});
+const args=['create','--empty','--no-pub','--project-name','routeloom',
+ '--org','org.routeloom','--platforms=windows,macos,linux,android,ios',temporary];
+const windows=process.platform==='win32';
+// Pass the destination as data, not interpolated shell source (paths may contain spaces).
+const result=spawnSync(windows?'powershell.exe':'flutter',windows?[
+ '-NoProfile','-NonInteractive','-Command',
+ "& flutter.bat create --empty --no-pub --project-name routeloom --org org.routeloom '--platforms=windows,macos,linux,android,ios' $env:ROUTELOOM_RUNNER_DEST; exit $LASTEXITCODE",
+]:args,{stdio:'inherit',env:{...process.env,ROUTELOOM_RUNNER_DEST:temporary}});
 if(result.error) throw result.error;
 if(result.status!==0) process.exit(result.status??1);
 for(const entry of ['windows','macos','linux','android','ios','.metadata']) {

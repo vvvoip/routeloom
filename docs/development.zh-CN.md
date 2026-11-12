@@ -26,7 +26,7 @@ flutter test
 flutter run
 ```
 
-脚本生成五大平台的官方 Flutter 工程，且不会覆盖现有原生适配文件。目前界面不会请求 VPN 权限；连接按钮保持不可用。语言切换仅在本次运行期间有效。翻译位于 lib/l10n/app_en.arb 和 app_zh_CN.arb。
+脚本生成五大平台的官方 Flutter 工程，且不会覆盖现有原生适配文件。目前界面不会请求 VPN 权限；连接按钮保持不可用。语言切换仅在本次运行期间有效。翻译位于 lib/l10n/app_en.arb 和 app_zh.arb。
 
 ## 官网
 
