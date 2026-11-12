@@ -1,0 +1,10 @@
+# First matching rule wins. Explicit local bypasses.
+cidr 127.0.0.0/8 direct
+cidr ::1/128 direct
+cidr 10.0.0.0/8 direct
+cidr 172.16.0.0/12 direct
+cidr 192.168.0.0/16 direct
+cidr fc00::/7 direct
+domain blocked.example block
+domain-suffix example.org direct
+final proxy:default

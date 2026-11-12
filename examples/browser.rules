@@ -1,0 +1,3 @@
+# Losslessly representable PAC subset.
+domain-suffix example.org direct
+final proxy:default

@@ -1,0 +1,51 @@
+name: Five-platform client builds
+on:
+  push:
+    branches: [main]
+    paths: ['apps/client/**', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
+  pull_request:
+    paths: ['apps/client/**', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: client-builds-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: ${{ matrix.platform }} interface build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {platform: windows, os: windows-latest, command: 'windows --debug'}
+          - {platform: macos, os: macos-latest, command: 'macos --debug'}
+          - {platform: linux, os: ubuntu-latest, command: 'linux --debug'}
+          - {platform: android, os: ubuntu-latest, command: 'apk --debug'}
+          - {platform: ios, os: macos-latest, command: 'ios --debug --no-codesign'}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - if: matrix.platform == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+      - run: node scripts/bootstrap-client.mjs
+      - run: flutter pub get
+        working-directory: apps/client
+      - run: flutter gen-l10n
+        working-directory: apps/client
+      - run: flutter build ${{ matrix.command }}
+        working-directory: apps/client

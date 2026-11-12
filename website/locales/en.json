@@ -1,0 +1,150 @@
+{
+  "langName": "English",
+  "other": "简体中文",
+  "nav": [
+    "How it works",
+    "Platforms",
+    "Roadmap",
+    "Docs"
+  ],
+  "badge": "OPEN SOURCE · IN DEVELOPMENT",
+  "hero": "Every connection.<br><em>Your direction.</em>",
+  "intro": "A clearer way to route your traffic. RouteLoom is building one self-hosted proxy experience for your desktop, phone, and cloud server.",
+  "primary": "Explore the project",
+  "secondary": "Read the development guide",
+  "notice": "Pre-alpha. No public app downloads yet.",
+  "panelTitle": "Your routes, made visible.",
+  "panelCaption": "Illustrative rule preview · no traffic is sent",
+  "labels": [
+    "DESTINATION",
+    "DECISION"
+  ],
+  "routes": [
+    [
+      "Home network",
+      "DIRECT"
+    ],
+    [
+      "Selected websites",
+      "PROXY"
+    ],
+    [
+      "Blocked domains",
+      "BLOCK"
+    ]
+  ],
+  "sampleTitle": "A small rule. A clear decision.",
+  "sampleText": "Choose an example to see how a routing policy could work. This demo runs only in your browser.",
+  "sampleOptions": [
+    "Local network · 192.168.1.20",
+    "Selected website · example.com",
+    "Blocked domain · blocked.example"
+  ],
+  "sampleResults": [
+    "DIRECT — the local-network exception matches.",
+    "PROXY — the default server route matches.",
+    "BLOCK — the explicit domain rule matches."
+  ],
+  "howTitle": "Your device. Your rules.<br>Your server.",
+  "howIntro": "A simple connection flow is the destination. Here is what we’re building.",
+  "steps": [
+    [
+      "01",
+      "Deploy",
+      "Run your own server with a guided setup and clear upgrade paths."
+    ],
+    [
+      "02",
+      "Pair",
+      "Add a device using a short-lived invitation. Manage access per device."
+    ],
+    [
+      "03",
+      "Route",
+      "Choose direct, proxy, or block rules, then inspect why a route matched."
+    ]
+  ],
+  "platformTitle": "Five platforms.<br>One coordinated launch.",
+  "platformIntro": "Windows, macOS, Linux, Android, and iOS/iPadOS are all in the first-release scope. Capabilities will respect each operating system.",
+  "platforms": [
+    [
+      "Windows",
+      "Wintun + background service"
+    ],
+    [
+      "macOS",
+      "Network Extension"
+    ],
+    [
+      "Linux",
+      "TUN + system service"
+    ],
+    [
+      "Android",
+      "VpnService"
+    ],
+    [
+      "iOS / iPadOS",
+      "Packet Tunnel Provider"
+    ]
+  ],
+  "platformStatus": "Target · adapter pending",
+  "appleNote": "Apple platforms have additional routing, entitlement, signing, and distribution constraints. Per-app VPN on iOS requires managed devices.",
+  "roadmapTitle": "Built in the open.",
+  "roadmapIntro": "Follow implementation as it happens. Each milestone is a release gate, not a promise of an available feature.",
+  "milestones": [
+    [
+      "01",
+      "Foundation",
+      "Shared policy engine, bilingual interface, website, and build checks.",
+      "IN PROGRESS"
+    ],
+    [
+      "02",
+      "End-to-end connection",
+      "Authenticated transport, server setup, device enrollment, and native adapters.",
+      "PLANNED"
+    ],
+    [
+      "03",
+      "Unified beta",
+      "Routing, UDP, DNS, supported PAC integration, and diagnostics on all five platforms.",
+      "PLANNED"
+    ],
+    [
+      "04",
+      "Public release",
+      "Device testing, security review, signing, upgrades, and bilingual documentation.",
+      "PLANNED"
+    ]
+  ],
+  "footerTitle": "Make the route your own.",
+  "footerText": "Read the source, follow development, or help shape the first release.",
+  "github": "View on GitHub",
+  "footerNote": "Apache-2.0 · English & 简体中文 · Self-hosted by design",
+  "docsTitle": "Start with the foundation.",
+  "docsIntro": "This is a developer preview. It does not proxy or capture network traffic yet.",
+  "docsSections": [
+    [
+      "What works today",
+      "The Rust policy engine evaluates ordered domain, CIDR, port, and protocol rules. The CLI validates and explains policies. The client interface is bilingual. The server scaffold exposes only local health information."
+    ],
+    [
+      "Run the policy tools",
+      "Install the Rust toolchain specified in rust-toolchain.toml, then run these commands from the repository root."
+    ],
+    [
+      "Run the client",
+      "Install the pinned Flutter SDK, generate the native runners, and run the interface on a supported development machine. Native VPN adapters are still pending."
+    ],
+    [
+      "Deployment status",
+      "Cloud-server deployment will begin after authentication, TLS, enrollment, and outbound-access controls are implemented and tested. Do not expose the health scaffold as a public proxy."
+    ],
+    [
+      "Contribute",
+      "Choose an item in the roadmap. Include tests for routing and security behavior, and update both languages when changing visible text. No paid account or cloud server is needed for policy-engine development."
+    ]
+  ],
+  "back": "Back to overview"
+}
