@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:routeloom/main.dart';
+import 'package:routeloom/services/profile_store.dart';
 import 'package:routeloom/platforms/tunnel_adapter.dart';
 
 void main() {
@@ -28,7 +29,9 @@ void main() {
         debugDefaultTargetPlatformOverride = null;
         messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
       });
-      await tester.pumpWidget(const RouteLoomApp());
+      await tester.pumpWidget(
+        RouteLoomApp(store: ProfileStore(vault: TestVault())),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Connected'), findsOneWidget);
       final button = tester.widget<FilledButton>(
@@ -43,7 +46,9 @@ void main() {
   );
 
   testWidgets('connect requires an imported profile', (tester) async {
-    await tester.pumpWidget(const RouteLoomApp());
+    await tester.pumpWidget(
+      RouteLoomApp(store: ProfileStore(vault: TestVault())),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Not connected'), findsOneWidget);
     final button = tester.widget<FilledButton>(
@@ -54,7 +59,9 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
   testWidgets('language can switch to Chinese and back', (tester) async {
-    await tester.pumpWidget(const RouteLoomApp());
+    await tester.pumpWidget(
+      RouteLoomApp(store: ProfileStore(vault: TestVault())),
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
@@ -77,11 +84,23 @@ void main() {
     ) async {
       debugDefaultTargetPlatformOverride = platform;
       addTearDown(() => debugDefaultTargetPlatformOverride = null);
-      await tester.pumpWidget(const RouteLoomApp());
+      await tester.pumpWidget(
+        RouteLoomApp(store: ProfileStore(vault: TestVault())),
+      );
       await tester.pumpAndSettle();
       expect(find.text('RouteLoom'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
+  }
+}
+
+class TestVault implements Vault {
+  String raw = '{"version":1,"profiles":[],"automaticUpdates":false}';
+  @override
+  Future<String?> read() async => raw;
+  @override
+  Future<void> write(String value) async {
+    raw = value;
   }
 }

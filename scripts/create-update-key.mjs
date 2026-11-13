@@ -1,0 +1,13 @@
+import {generateKeyPairSync} from 'node:crypto';
+import {mkdirSync,writeFileSync,existsSync} from 'node:fs';
+import {resolve} from 'node:path';
+const directory=resolve('.local/release-signing');
+mkdirSync(directory,{recursive:true});
+const privatePath=resolve(directory,'ROUTELOOM_UPDATE_PRIVATE_KEY.txt');
+if(existsSync(privatePath)) throw new Error('Existing update signing key must not be overwritten');
+const {publicKey,privateKey}=generateKeyPairSync('ed25519');
+writeFileSync(privatePath,privateKey.export({format:'der',type:'pkcs8'}).toString('base64'),{mode:0o600});
+const raw=Buffer.from(publicKey.export({format:'jwk'}).x,'base64url').toString('base64');
+writeFileSync('packaging/update-key.json',JSON.stringify({id:'routeloom-2026-01',publicKey:raw},null,2)+'\n');
+writeFileSync('apps/client/lib/services/update_key.dart',"const updatePublicKey = '"+raw+"';\n");
+console.log('Created private signing key locally and public verification key in source.');

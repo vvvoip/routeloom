@@ -34,10 +34,10 @@ if(platform==='windows') {
  await copy('packaging/linux/routeloom.desktop',path.join(stage,'usr/share/applications/routeloom.desktop'));
  await copy('packaging/linux/org.routeloom.vpn.policy',path.join(stage,'usr/share/polkit-1/actions/org.routeloom.vpn.policy'));
  await fs.mkdir(path.join(stage,'DEBIAN'),{recursive:true});
- await fs.writeFile(path.join(stage,'DEBIAN/control'),'Package: routeloom\nVersion: '+config.debianVersion+'\nArchitecture: amd64\nMaintainer: RouteLoom <noreply@github.com>\nSection: net\nPriority: optional\nDepends: libc6 (>= 2.39), libgtk-3-0t64, libstdc++6, liblzma5, libglu1-mesa, iproute2, systemd-resolved, pkexec, policykit-1\nDescription: RouteLoom encrypted VPN preview\n Bilingual client for a self-hosted RouteLoom server.\n');
+ await fs.writeFile(path.join(stage,'DEBIAN/control'),'Package: routeloom\nVersion: '+config.debianVersion+'\nArchitecture: amd64\nMaintainer: RouteLoom <noreply@github.com>\nSection: net\nPriority: optional\nDepends: libc6 (>= 2.39), libgtk-3-0t64, libstdc++6, liblzma5, libglu1-mesa, libsecret-1-0, libjsoncpp25, nftables, iproute2, systemd-resolved, pkexec, policykit-1\nDescription: RouteLoom encrypted VPN preview\n Bilingual client for a self-hosted RouteLoom server.\n');
  execFileSync('dpkg-deb',['--root-owner-group','--build',stage,path.join(out,'routeloom-linux-amd64.deb')],{stdio:'inherit'});
  execFileSync('dpkg-deb',['--info',path.join(out,'routeloom-linux-amd64.deb')],{stdio:'inherit'});
 } else if(platform==='android') {
- await copy('apps/client/build/app/outputs/flutter-apk/app-release.apk',path.join(out,'routeloom-android-preview.apk'));
+ await copy('apps/client/build/app/outputs/flutter-apk/app-release.apk',path.join(out,'routeloom-android.apk'));
 } else throw Error('Unknown platform '+platform);
 console.log('Packaged '+platform);

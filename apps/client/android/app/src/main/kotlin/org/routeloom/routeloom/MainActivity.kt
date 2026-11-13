@@ -15,6 +15,8 @@ class MainActivity : FlutterActivity() {
         MethodChannel(engine.dartExecutor.binaryMessenger, "org.routeloom/vpn").setMethodCallHandler { call, result ->
             when (call.method) {
                 "status" -> result.success(RouteLoomVpnService.state)
+                "guardStatus" -> result.success(RouteLoomVpnService.lockdown)
+                "guardSettings" -> { startActivity(Intent(android.provider.Settings.ACTION_VPN_SETTINGS)); result.success(null) }
                 "disconnect" -> {
                     pending?.error("cancelled", "VPN start cancelled", null)
                     pending = null; profile = null
@@ -22,7 +24,7 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "connect" -> {
-                    if (pending != null || RouteLoomVpnService.state in listOf("connecting", "connected")) {
+                    if (pending != null || RouteLoomVpnService.state in listOf("connecting", "reconnecting", "connected")) {
                         result.error("busy", "VPN operation in progress", null)
                     } else {
                         val value = call.arguments as? String

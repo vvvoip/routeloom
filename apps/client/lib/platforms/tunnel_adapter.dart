@@ -8,6 +8,8 @@ enum TunnelState {
   unavailable,
   disconnected,
   connecting,
+  reconnecting,
+  blocked,
   connected,
   disconnecting,
   failed,
@@ -16,6 +18,22 @@ enum TunnelState {
 class TunnelProfile {
   TunnelProfile._(this.json);
   final String json;
+  Map<String, dynamic> get data => jsonDecode(json) as Map<String, dynamic>;
+  Map<String, dynamic> get options => {
+    'policy': 'final proxy:default',
+    'auto_reconnect': true,
+    'kill_switch': false,
+    'pac_port': 12789,
+    ...((data['options'] as Map<String, dynamic>?) ?? {}),
+  };
+  TunnelProfile withOptions(Map<String, dynamic> changes) =>
+      TunnelProfile.parse(
+        jsonEncode({
+          ...data,
+          'options': {...options, ...changes},
+        }),
+      );
+
   factory TunnelProfile.parse(String raw) {
     if (raw.length > 65536) throw const FormatException('Profile too large');
     final value = jsonDecode(raw) as Map<String, dynamic>;
@@ -30,7 +48,7 @@ class TunnelProfile {
       'routes',
       'dns',
     };
-    if (value.keys.toSet().difference(keys).isNotEmpty ||
+    if (value.keys.toSet().difference({...keys, 'options'}).isNotEmpty ||
         !keys.every(value.containsKey)) {
       throw const FormatException('Invalid profile fields');
     }
@@ -120,6 +138,26 @@ class TunnelProfile {
         throw const FormatException('DNS must use a captured route');
       }
     }
+    if (value.containsKey('options')) {
+      final o = value['options'] as Map<String, dynamic>;
+      if (o.keys.toSet().difference({
+            'policy',
+            'auto_reconnect',
+            'kill_switch',
+            'pac_port',
+          }).isNotEmpty ||
+          (o.containsKey('policy') &&
+              (o['policy'] is! String ||
+                  (o['policy'] as String).length > 16384)) ||
+          (o.containsKey('auto_reconnect') && o['auto_reconnect'] is! bool) ||
+          (o.containsKey('kill_switch') && o['kill_switch'] is! bool) ||
+          (o.containsKey('pac_port') &&
+              (o['pac_port'] is! int ||
+                  o['pac_port'] < 0 ||
+                  o['pac_port'] > 65535))) {
+        throw const FormatException('Invalid options');
+      }
+    }
     return TunnelProfile._(jsonEncode(value));
   }
 }
@@ -181,7 +219,9 @@ class NativeTunnelAdapter implements TunnelAdapter {
       );
       _emit(state);
       _timer?.cancel();
-      if (state == TunnelState.connecting ||
+      if (state == TunnelState.reconnecting ||
+          state == TunnelState.blocked ||
+          state == TunnelState.connecting ||
           state == TunnelState.connected ||
           state == TunnelState.disconnecting) {
         _timer = Timer(const Duration(seconds: 1), () => _poll(operation));
@@ -234,6 +274,7 @@ class DesktopTunnelAdapter implements TunnelAdapter {
 
   @override
   Future<void> connect(TunnelProfile profile) async {
+    if (_process != null && _state == TunnelState.blocked) await disconnect();
     if (_process != null) throw StateError('Already running');
     final operation = ++_operation;
     _emit(TunnelState.connecting);
@@ -261,7 +302,16 @@ class DesktopTunnelAdapter implements TunnelAdapter {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((line) {
-            if (line == '{"state":"connected"}') _emit(TunnelState.connected);
+            try {
+              final status =
+                  (jsonDecode(line) as Map<String, dynamic>)['state'];
+              final state = TunnelState.values
+                  .where((s) => s.name == status)
+                  .firstOrNull;
+              if (state != null) _emit(state);
+            } catch (_) {
+              /* Ignore non-status output. */
+            }
           });
       // Do not expose child logs or profiles in UI diagnostics.
       process.stderr.drain<void>();

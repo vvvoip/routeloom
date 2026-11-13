@@ -24,3 +24,6 @@ apps/client/lib/l10n/generated/
 apps/client/**/generated_plugin_registrant.*
 apps/client/**/generated_plugins.cmake
 apps/client/macos/Flutter/GeneratedPluginRegistrant.swift
+
+apps/client/native/
+apps/client/android/app/src/main/jniLibs/

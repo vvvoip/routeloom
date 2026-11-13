@@ -15,3 +15,8 @@ for platform in ('ios', 'macos'):
 config = root / 'apps/client/macos/Runner/Configs/AppInfo.xcconfig'
 config.write_text(config.read_text().replace('org.routeloom.routeloom', bundle))
 print('Apple team and bundle identifiers configured locally. Open Runner and check both Runner and PacketTunnel signing.')
+
+for platform in ('ios', 'macos'):
+    for file in (root / 'apps/client' / platform).rglob('*'):
+        if file.suffix == '.entitlements' or file.name == 'Info.plist':
+            file.write_text(file.read_text().replace('org.routeloom.routeloom', bundle))

@@ -17,6 +17,26 @@ pub struct Profile {
     pub ipv6: Ipv6Addr,
     pub routes: Vec<IpNet>,
     pub dns: Vec<IpAddr>,
+    #[serde(default)]
+    pub options: Options,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct Options {
+    pub policy: String,
+    pub auto_reconnect: bool,
+    pub kill_switch: bool,
+    pub pac_port: u16,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            policy: "final proxy:default".into(),
+            auto_reconnect: true,
+            kill_switch: false,
+            pac_port: 12789,
+        }
+    }
 }
 impl Profile {
     pub fn validate(&self) -> Result<()> {
@@ -36,6 +56,9 @@ impl Profile {
         };
         if endpoint_in_tunnel {
             return Err(invalid("server endpoint overlaps the tunnel subnet"));
+        }
+        if self.options.policy.len() > 16384 {
+            return Err(invalid("policy too large"));
         }
         validate_identity(&self.device, &self.token)?;
         validate_lease(self.ipv4, self.ipv6)?;

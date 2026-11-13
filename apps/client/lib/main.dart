@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'services/profile_store.dart';
+import 'widgets/features.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,13 +10,33 @@ import 'platforms/tunnel_adapter.dart';
 void main() => runApp(const RouteLoomApp());
 
 class RouteLoomApp extends StatefulWidget {
-  const RouteLoomApp({super.key});
+  const RouteLoomApp({super.key, this.store});
+  final ProfileStore? store;
   @override
   State<RouteLoomApp> createState() => _RouteLoomAppState();
 }
 
 class _RouteLoomAppState extends State<RouteLoomApp> {
   Locale? _locale;
+  late final ProfileStore _store = widget.store ?? ProfileStore();
+  @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    try {
+      await _store.load();
+      if (mounted)
+        setState(
+          () => _locale = _store.language == 'system'
+              ? null
+              : Locale(_store.language),
+        );
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -30,6 +52,7 @@ class _RouteLoomAppState extends State<RouteLoomApp> {
         appBarTheme: const AppBarTheme(backgroundColor: Color(0xfff5f3eb)),
       ),
       home: RouteLoomHome(
+        store: _store,
         language: _locale?.languageCode == 'zh'
             ? 'zh'
             : _locale?.languageCode ?? 'system',
@@ -49,8 +72,10 @@ class RouteLoomHome extends StatefulWidget {
   const RouteLoomHome({
     super.key,
     required this.language,
+    required this.store,
     required this.onLanguageChanged,
   });
+  final ProfileStore store;
   final String language;
   final ValueChanged<String> onLanguageChanged;
   @override
@@ -63,7 +88,16 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
   late final TunnelAdapter _adapter;
   StreamSubscription<TunnelState>? _subscription;
   TunnelState _state = TunnelState.disconnected;
-  TunnelProfile? _profile;
+  TunnelProfile? _sessionProfile;
+  TunnelProfile? get _profile =>
+      widget.store.active?.profile ?? _sessionProfile;
+  bool get _active => [
+    TunnelState.connected,
+    TunnelState.connecting,
+    TunnelState.reconnecting,
+    TunnelState.blocked,
+    TunnelState.disconnecting,
+  ].contains(_state);
   @override
   void initState() {
     super.initState();
@@ -93,7 +127,16 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
     try {
       final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
       final profile = TunnelProfile.parse(clipboard?.text ?? '');
-      if (mounted) setState(() => _profile = profile);
+      if (widget.store.available) {
+        await widget.store.import(profile);
+      } else {
+        _sessionProfile = profile;
+        if (mounted)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(t.storageUnavailable)));
+      }
+      if (mounted) setState(() {});
     } catch (_) {
       if (mounted)
         ScaffoldMessenger.of(
@@ -104,7 +147,9 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
 
   Future<void> _toggle() async {
     try {
-      if (_state == TunnelState.connected || _state == TunnelState.connecting) {
+      if (_state == TunnelState.connected ||
+          _state == TunnelState.connecting ||
+          _state == TunnelState.reconnecting) {
         await _adapter.disconnect();
       } else {
         await _adapter.connect(_profile!);
@@ -152,6 +197,8 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
             switch (_state) {
               TunnelState.connected => t.connected,
               TunnelState.connecting => t.connecting,
+              TunnelState.reconnecting => t.reconnecting,
+              TunnelState.blocked => t.trafficBlocked,
               TunnelState.disconnecting => t.disconnecting,
               TunnelState.failed => t.connectionFailed,
               _ => t.disconnected,
@@ -170,14 +217,16 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                   onPressed:
                       (_profile == null &&
                               _state != TunnelState.connected &&
-                              _state != TunnelState.connecting) ||
+                              _state != TunnelState.connecting &&
+                              _state != TunnelState.reconnecting) ||
                           _state == TunnelState.disconnecting
                       ? null
                       : _toggle,
                   icon: const Icon(Icons.power_settings_new),
                   label: Text(
                     _state == TunnelState.connected ||
-                            _state == TunnelState.connecting
+                            _state == TunnelState.connecting ||
+                            _state == TunnelState.reconnecting
                         ? t.disconnect
                         : t.connect,
                   ),
@@ -199,7 +248,13 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
               ],
             ),
           ),
-          _card(t.routePolicy, t.routePolicyDescription),
+          FeaturePanel(
+            store: widget.store,
+            active: _active,
+            onChanged: () => setState(() {}),
+            state: _state,
+            disconnect: _adapter.disconnect,
+          ),
           _card(t.launchScope, t.launchDescription),
         ],
       ),
@@ -236,7 +291,18 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                 DropdownMenuItem(value: 'zh', child: Text(t.chinese)),
               ],
               onChanged: (value) {
-                if (value != null) widget.onLanguageChanged(value);
+                if (value != null) {
+                  widget.onLanguageChanged(value);
+                  widget.store.language = value;
+                  unawaited(
+                    widget.store.save().catchError((_) {
+                      if (mounted)
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(t.storageUnavailable)),
+                        );
+                    }),
+                  );
+                }
               },
             ),
           ),

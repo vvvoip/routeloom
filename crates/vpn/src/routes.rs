@@ -25,7 +25,10 @@ impl Routes {
     }
     pub fn apply(name: &str, p: &Profile) -> Result<Self> {
         let mut owned = Self { undo: vec![] };
-        let routes = capture_routes(&p.routes, p.endpoint.ip())?;
+        let mut included = p.routes.clone();
+        included.push("198.18.0.0/16".parse().unwrap());
+        included.push("fdfe::/112".parse().unwrap());
+        let routes = capture_routes(&included, p.endpoint.ip())?;
         #[cfg(target_os = "linux")]
         {
             owned.add(

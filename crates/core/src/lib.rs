@@ -284,6 +284,19 @@ impl Policy {
             fallback_line,
         })
     }
+    pub fn validate_default_group(&self) -> Result<(), PolicyError> {
+        for action in self
+            .rules
+            .iter()
+            .map(|r| &r.action)
+            .chain(std::iter::once(&self.fallback))
+        {
+            if matches!(action, Action::Proxy(name) if name!="default") {
+                return Err(invalid("only proxy:default is configured"));
+            }
+        }
+        Ok(())
+    }
     pub fn rule_count(&self) -> usize {
         self.rules.len()
     }

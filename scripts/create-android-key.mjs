@@ -1,0 +1,13 @@
+import {randomBytes} from 'node:crypto';
+import {existsSync,readFileSync,writeFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {resolve} from 'node:path';
+const dir=resolve('.local/release-signing');
+const keystore=resolve(dir,'routeloom-release.jks');
+if(existsSync(keystore))throw new Error('Existing Android signing key must not be overwritten');
+const password=randomBytes(32).toString('base64url');
+const result=spawnSync(process.argv[2],['-genkeypair','-keystore',keystore,'-storetype','JKS','-alias','routeloom','-keyalg','RSA','-keysize','3072','-validity','10000','-dname','CN=RouteLoom, O=RouteLoom','-storepass:env','ROUTELOOM_TEMP_PASSWORD','-keypass:env','ROUTELOOM_TEMP_PASSWORD'],{env:{...process.env,ROUTELOOM_TEMP_PASSWORD:password},encoding:'utf8'});
+if(result.status!==0)throw new Error('Android key generation failed: '+result.stderr);
+writeFileSync(resolve(dir,'ROUTELOOM_ANDROID_KEYSTORE_BASE64.txt'),readFileSync(keystore).toString('base64'),{mode:0o600});
+writeFileSync(resolve(dir,'ROUTELOOM_ANDROID_KEY_PASSWORD.txt'),password,{mode:0o600});
+console.log('Created stable Android signing key; private values saved only in .local/release-signing.');

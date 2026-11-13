@@ -1,0 +1,29 @@
+[package]
+name = "routeloom-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["rlib", "staticlib", "cdylib"]
+
+[dependencies]
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+routeloom-core = { path = "../core" }
+routeloom-tunnel = { path = "../tunnel" }
+netstack-smoltcp = "=0.2.5"
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+socket2 = { version = "0.6", features = ["all"] }
+hickory-proto = "0.25"
+httparse = "1"
+libc = "0.2"
+rand = "0.9"
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Networking_WinSock", "Win32_NetworkManagement_IpHelper", "Win32_Foundation"] }

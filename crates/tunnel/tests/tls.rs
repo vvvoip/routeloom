@@ -12,6 +12,7 @@ async fn fixture() -> (Profile, tokio::task::JoinHandle<bool>) {
     let (cert, key) = identity();
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let p = Profile {
+        options: Default::default(),
         endpoint: listener.local_addr().unwrap(),
         server_name: "localhost".into(),
         ca_pem: cert.clone(),
