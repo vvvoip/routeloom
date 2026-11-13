@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN" "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<policyconfig>
+  <vendor>RouteLoom</vendor>
+  <vendor_url>https://vvvoip.github.io/routeloom/</vendor_url>
+  <action id="org.routeloom.vpn.connect">
+    <description>Connect the RouteLoom VPN</description>
+    <description xml:lang="zh_CN">连接 RouteLoom VPN</description>
+    <message>Authentication is required to configure the RouteLoom network interface.</message>
+    <message xml:lang="zh_CN">配置 RouteLoom 网络接口需要管理员认证。</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/routeloom/routeloom-vpn</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">connect-stdio</annotate>
+  </action>
+</policyconfig>

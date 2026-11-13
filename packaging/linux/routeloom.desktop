@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RouteLoom
+Comment=Encrypted self-hosted VPN
+Comment[zh_CN]=自托管加密 VPN
+Exec=/usr/lib/routeloom/routeloom
+Icon=network-vpn
+Terminal=false
+Categories=Network;

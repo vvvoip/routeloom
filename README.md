@@ -4,7 +4,7 @@
 
 An open-source, self-hosted proxy platform in early development. One shared routing core, five client platforms, and a server you control.
 
-**Status: VPN developer milestone / pre-alpha. Native capture and TLS 1.3 transport are implemented; signed real-device validation and production packaging are still required.** The first public usable release is gated on Windows, macOS, Linux, Android, and iOS/iPadOS together. English and Simplified Chinese are launch requirements.
+**Status: experimental VPN alpha.** [Download client previews](https://github.com/vvvoip/routeloom/releases) and follow the [installation guide](docs/install.md). Windows, Ubuntu and Android packages are provided; Apple platforms currently require the source signing kit and your developer account. English and Simplified Chinese are included. A complete signed five-platform release remains the goal.
 
 ## Development
 

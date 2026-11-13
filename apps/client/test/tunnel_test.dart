@@ -17,6 +17,22 @@ Map<String, dynamic> fixture() => {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
+    'Linux elevates only the helper and keeps paths as separate arguments',
+    () {
+      const binary = '/usr/lib/Route Loom/routeloom-vpn';
+      expect(desktopTunnelCommand(binary, linux: true), [
+        '/usr/bin/pkexec',
+        '--disable-internal-agent',
+        binary,
+        'connect-stdio',
+      ]);
+      expect(desktopTunnelCommand(binary, linux: false), [
+        binary,
+        'connect-stdio',
+      ]);
+    },
+  );
+  test(
     'profiles reject missing fields, bad identity, routes and uncaptured DNS',
     () {
       expect(TunnelProfile.parse(jsonEncode(fixture())).json, isNotEmpty);

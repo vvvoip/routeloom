@@ -4,7 +4,7 @@
 
 RouteLoom 是一个正在开发的开源、自托管代理项目：共享路由核心、五大平台客户端，以及由你管理的服务端。
 
-**当前处于 VPN 开发里程碑（pre-alpha）：已加入原生捕获和 TLS 1.3 传输，仍需完成签名、真机验证和生产安装包。** 首个公开可用版本将同时面向 Windows、macOS、Linux、Android 和 iOS/iPadOS，并提供英语与简体中文。
+**当前处于实验性 VPN alpha。** [下载客户端预览版](https://github.com/vvvoip/routeloom/releases)，并阅读[安装说明](docs/install.zh-CN.md)。提供 Windows、Ubuntu 和 Android 安装包；Apple 平台目前需要源码签名包及你的开发者账户。界面包含英语和简体中文。完整签名的五平台正式版本仍是目标。
 
 ## 项目组成
 

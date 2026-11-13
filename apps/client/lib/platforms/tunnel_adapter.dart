@@ -215,6 +215,10 @@ class NativeTunnelAdapter implements TunnelAdapter {
   }
 }
 
+List<String> desktopTunnelCommand(String binary, {required bool linux}) => linux
+    ? ['/usr/bin/pkexec', '--disable-internal-agent', binary, 'connect-stdio']
+    : [binary, 'connect-stdio'];
+
 class DesktopTunnelAdapter implements TunnelAdapter {
   final _states = StreamController<TunnelState>.broadcast();
   Process? _process;
@@ -241,7 +245,9 @@ class DesktopTunnelAdapter implements TunnelAdapter {
             'routeloom-vpn' +
             suffix;
     try {
-      final process = await Process.start(binary, ['connect-stdio']);
+      // Only the helper is elevated on Linux; the UI remains the logged-in user.
+      final command = desktopTunnelCommand(binary, linux: Platform.isLinux);
+      final process = await Process.start(command.first, command.sublist(1));
       if (_disposed || operation != _operation) {
         process.stdout.drain<void>();
         process.stderr.drain<void>();

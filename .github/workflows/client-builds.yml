@@ -2,9 +2,9 @@ name: Five-platform client builds
 on:
   push:
     branches: [main]
-    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
+    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'packaging/**', 'docs/install*', 'scripts/*client*', 'scripts/collect-licenses.mjs', 'scripts/check-windows-package.ps1', 'scripts/prepare-apple*', '.fvmrc', '.github/workflows/client-builds.yml']
   pull_request:
-    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
+    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'packaging/**', 'docs/install*', 'scripts/*client*', 'scripts/collect-licenses.mjs', 'scripts/check-windows-package.ps1', 'scripts/prepare-apple*', '.fvmrc', '.github/workflows/client-builds.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -13,16 +13,16 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    name: ${{ matrix.platform }} interface build
+    name: ${{ matrix.platform }} release build
     strategy:
       fail-fast: false
       matrix:
         include:
-          - {platform: windows, os: windows-2022, command: 'windows --debug'}
-          - {platform: macos, os: macos-15-intel, command: 'macos --debug --config-only'}
-          - {platform: linux, os: ubuntu-24.04, command: 'linux --debug'}
-          - {platform: android, os: ubuntu-24.04, command: 'apk --debug'}
-          - {platform: ios, os: macos-15-intel, command: 'ios --debug --no-codesign'}
+          - {platform: windows, os: windows-2022, command: 'windows --release'}
+          - {platform: macos, os: macos-15-intel, command: 'macos --release --config-only'}
+          - {platform: linux, os: ubuntu-24.04, command: 'linux --release'}
+          - {platform: android, os: ubuntu-24.04, command: 'apk --release'}
+          - {platform: ios, os: macos-15-intel, command: 'ios --release --no-codesign'}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     steps:
@@ -36,7 +36,7 @@ jobs:
           distribution: temurin
           java-version: '17'
       - if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libglu1-mesa xvfb
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.50.0'
@@ -47,13 +47,93 @@ jobs:
         working-directory: apps/client
       - run: flutter gen-l10n
         working-directory: apps/client
+      - if: matrix.platform == 'linux'
+        run: flutter test
+        working-directory: apps/client
       - run: flutter build ${{ matrix.command }}
         working-directory: apps/client
-
       - if: matrix.platform == 'macos'
-        run: xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release CODE_SIGNING_ALLOWED=NO build
         working-directory: apps/client/macos
       - if: matrix.platform == 'windows' || matrix.platform == 'linux'
         uses: dtolnay/rust-toolchain@1.100.0
       - if: matrix.platform == 'windows' || matrix.platform == 'linux'
         run: cargo build --release -p routeloom-vpn --locked
+      - if: matrix.platform == 'windows' || matrix.platform == 'linux'
+        run: node scripts/collect-licenses.mjs .local/dependency-licenses
+      - name: Bundle Microsoft runtime
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $installation = & $vswhere -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          $redist = Get-ChildItem -Path "$installation\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" -Directory | Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $redist) { throw 'Microsoft C++ redistributable folder not found' }
+          Copy-Item -Path "$($redist.FullName)\*.dll" -Destination apps/client/build/windows/x64/runner/Release
+      - if: matrix.platform == 'windows' || matrix.platform == 'linux' || matrix.platform == 'android'
+        run: node scripts/package-client.mjs ${{ matrix.platform }}
+      - if: matrix.platform == 'windows'
+        run: ./scripts/check-windows-package.ps1
+        shell: pwsh
+      - name: Check packaged Linux application
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          ldd .local/package-linux/usr/lib/routeloom/routeloom | tee .local/linux-dependencies.txt
+          if grep -q 'not found' .local/linux-dependencies.txt; then exit 1; fi
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a bash -c '
+            .local/package-linux/usr/lib/routeloom/routeloom >.local/linux-ui.log 2>&1 &
+            app_pid=$!
+            trap "kill $app_pid 2>/dev/null || true" EXIT
+            sleep 8
+            kill -0 "$app_pid"
+          '
+      - name: Verify Android package signature
+        if: matrix.platform == 'android'
+        shell: bash
+        run: |
+          signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$signer" verify --verbose .local/release-assets/routeloom-android-preview.apk
+      - if: matrix.platform == 'windows' || matrix.platform == 'linux' || matrix.platform == 'android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform }}
+          path: .local/release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+  publish:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: .local/release-assets
+      - name: Package Apple signing source and checksums
+        shell: bash
+        run: |
+          git archive --format=zip --prefix=routeloom/ --output=.local/release-assets/routeloom-apple-signing-kit.zip HEAD
+          cp packaging/RELEASE-NOTES.md .local/release-assets/READ-ME.md
+          cd .local/release-assets
+          sha256sum *.zip *.deb *.apk READ-ME.md > SHA256SUMS.txt
+      - name: Publish immutable alpha release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag=$(node -p "JSON.parse(require('fs').readFileSync('packaging/release.json')).tag")
+          title=$(node -p "JSON.parse(require('fs').readFileSync('packaging/release.json')).title")
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; change packaging/release.json to publish a new version."
+            exit 0
+          fi
+          gh release create "$tag" .local/release-assets/* --target "$GITHUB_SHA" --title "$title" --notes-file packaging/RELEASE-NOTES.md --prerelease --latest=false

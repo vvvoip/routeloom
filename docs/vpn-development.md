@@ -4,6 +4,8 @@ English · [简体中文](vpn-development.zh-CN.md)
 
 This build contains a TLS 1.3 packet server, Windows/Linux TUN helper, Android VpnService, and macOS/iOS PacketTunnelProvider. It is a developer build. Passing unsigned compilation does not prove signed VPN operation on a real device.
 
+For downloadable alpha packages, start with the [installation guide](install.md).
+
 ## Local server and profiles
 
 Build with Rust 1.100: `cargo build --release -p routeloom-vpn --locked`.
@@ -22,9 +24,9 @@ The server creates rl-server (10.77.0.1/24 and fd77::1/64). For Internet egress,
 
 The Rust helper creates Wintun/TUN, excludes the server endpoint from capture, applies profile routes and DNS, and reverses owned changes on normal exit or connection failure. Existing more-specific OS routes can remain direct. There is no persistent kill switch. Hard process termination or machine crashes require checking for stale adapter/DNS settings.
 
-- Windows: administrator privileges, signed Wintun DLL beside routeloom-vpn.exe. The tun dependency copies its Wintun runtime during build; preserve its license. Run `routeloom-vpn connect device.profile.json` in an administrator terminal.
+- Windows: administrator privileges, signed Wintun DLL beside routeloom-vpn.exe. The download bundles the signed Wintun runtime from the pinned dependency and its license. Run `routeloom-vpn connect device.profile.json` in an administrator terminal.
 - Linux: root, iproute2 and systemd-resolved/resolvectl. Run `sudo routeloom-vpn connect device.profile.json`. Systems using another resolver are not supported by the current DNS integration.
-- Flutter desktop: place the helper beside the app, or set ROUTELOOM_VPN_BINARY to an absolute helper path. The helper inherits privileges; it does not elevate itself. Start with the CLI for development. A least-privilege installed service and elevation UI remain packaging work. Do not distribute a privileged GUI as the production design.
+- Flutter desktop: place the helper beside the app, or set ROUTELOOM_VPN_BINARY to an absolute helper path. On Linux, the GUI invokes the helper through pkexec and a desktop authentication agent. On Windows, the preview launcher elevates the GUI and the helper inherits its privileges. Start with the CLI for development. A least-privilege installed service and elevation UI remain packaging work. Do not distribute a privileged GUI as the production design.
 - Disconnect with Ctrl-C. The Flutter bridge uses a private child-process stdin channel for profiles and graceful shutdown; credentials never appear in command-line arguments.
 
 ## Android
