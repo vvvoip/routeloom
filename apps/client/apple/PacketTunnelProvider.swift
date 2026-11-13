@@ -12,6 +12,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var lastReceived = Date()
     private var started = Date()
     private var profile: TunnelProfile?
+    private var pendingWrites: [UInt64: Date] = [:]
+    private var writeID: UInt64 = 0
 
     override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         queue.async {
@@ -50,6 +52,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 timer.schedule(deadline: .now() + 5, repeating: 5)
                 timer.setEventHandler { [weak self] in
                     guard let self = self, !self.stopped else { return }
+                    if self.pendingWrites.values.contains(where: { Date().timeIntervalSince($0) > 15 }) { self.fail(TunnelError.timeout); return }
                     if !self.ready {
                         if Date().timeIntervalSince(self.started) > 15 { self.fail(TunnelError.timeout) }
                     } else if Date().timeIntervalSince(self.lastReceived) > 70 {
@@ -111,7 +114,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private func sendPackets(_ packets: [Data], _ index: Int) {
         guard !stopped else { return }
         if index == packets.count { readPackets(); return }
-        guard validPacket(packets[index], source: true) else { fail(TunnelError.packet); return }
+        guard validPacket(packets[index], source: true) else { sendPackets(packets, index + 1); return }
         send(3, packets[index]) { self.sendPackets(packets, index + 1) }
     }
     private func readRemote() {
@@ -141,7 +144,11 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         guard payload.count < 4096 else { fail(TunnelError.invalid); return }
         var len = UInt32(payload.count + 1).bigEndian
         var data = withUnsafeBytes(of: &len) { Data($0) }; data.append(kind); data.append(payload)
+        guard pendingWrites.count < 16 else { fail(TunnelError.connection); return }
+        writeID &+= 1
+        let id = writeID; pendingWrites[id] = Date()
         connection?.send(content: data, completion: .contentProcessed { error in
+            self.pendingWrites.removeValue(forKey: id)
             guard !self.stopped else { return }
             if let error = error { self.fail(error) } else { done() }
         })

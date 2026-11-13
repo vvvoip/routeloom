@@ -28,7 +28,11 @@ import javax.net.ssl.SSLSocket
 import javax.net.ssl.TrustManagerFactory
 
 class RouteLoomVpnService : VpnService() {
-    companion object { @Volatile var state = "disconnected"; private set }
+    companion object {
+        @Volatile var state = "disconnected"; private set
+        fun markStarting() { state = "connecting" }
+        fun markFailed() { state = "failed" }
+    }
     private var session: Session? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == "stop") { stopVpn(); return START_NOT_STICKY }
@@ -83,6 +87,8 @@ class RouteLoomVpnService : VpnService() {
             val ipv4 = InetAddress.getByName(p.getString("ipv4"))
             val ipv6 = InetAddress.getByName(p.getString("ipv6"))
             require(ipv4.address.size == 4 && ipv6.address.size == 16)
+            require(ipv4.address.take(3) == listOf(10.toByte(),77.toByte(),0.toByte()) && (ipv4.address[3].toInt() and 255) in 2..254)
+            require(ipv6.address.take(14) == byteArrayOf(0xfd.toByte(),0x77,0,0,0,0,0,0,0,0,0,0,0,0).toList() && ((ipv6.address[14].toInt() and 255) * 256 + (ipv6.address[15].toInt() and 255)) >= 2)
             val ca = p.getString("ca_pem"); require(ca.length <= 32768)
             val store = KeyStore.getInstance(KeyStore.getDefaultType()).apply { load(null) }
             val certs = CertificateFactory.getInstance("X.509").generateCertificates(ca.byteInputStream())
@@ -135,7 +141,7 @@ class RouteLoomVpnService : VpnService() {
                         val n = source.read(buffer)
                         if (n <= 0) error("TUN closed")
                         val packet = buffer.copyOf(n)
-                        checkPacket(packet, ipv4.address, ipv6.address, true)
+                        try { checkPacket(packet, ipv4.address, ipv6.address, true) } catch (_: IllegalArgumentException) { continue }
                         frame(3, packet)
                     }
                 } catch (_: Exception) { fail() }

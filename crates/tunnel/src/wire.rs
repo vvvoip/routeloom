@@ -48,10 +48,14 @@ pub async fn write_frame<W: AsyncWrite + Unpin>(w: &mut W, kind: u8, data: &[u8]
     if data.len() >= MAX_FRAME {
         return Err(invalid("frame too large"));
     }
-    w.write_u32((data.len() + 1) as u32).await?;
-    w.write_u8(kind).await?;
-    w.write_all(data).await?;
-    w.flush().await
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        w.write_u32((data.len() + 1) as u32).await?;
+        w.write_u8(kind).await?;
+        w.write_all(data).await?;
+        w.flush().await
+    })
+    .await
+    .map_err(|_| invalid("frame write timed out"))?
 }
 pub fn json<T: Serialize>(value: &T) -> Result<Vec<u8>> {
     serde_json::to_vec(value).map_err(|_| invalid("invalid message"))

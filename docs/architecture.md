@@ -1,36 +1,36 @@
 # Architecture
 
-Status: VPN developer milestone / pre-alpha. See [RL/1](rl1.md) and [native setup](vpn-development.md) for the implemented data path and validation limits.
+Status: VPN developer milestone / pre-alpha. [RL/1 specification](rl1.md) and [setup guide](vpn-development.md).
 
-The original planned boundaries below remain the long-term architecture. RL/1 currently carries complete IPv4/IPv6 packets over TLS 1.3; it does not yet apply domain rules or provide HTTP CONNECT/CONNECT-UDP.
+## Implemented boundaries
 
-## Boundaries
+- **Policy core (Rust):** deterministic rule validation, first-match decisions, reason lines, and lossless PAC export. It remains independent of network access.
+- **Packet transport (Rust):** TLS 1.3, CA/hostname verification, device authentication, bounded frames, IPv4/IPv6 validation and lease checking.
+- **Desktop capture:** Rust Wintun/TUN helper on Windows/Linux. Explicit routes exclude the numeric tunnel endpoint. Owned routes/DNS are reversed on normal exit. The Flutter bridge passes the profile over child stdin, not command-line arguments.
+- **Android:** VpnService with consent and foreground lifecycle. Its TLS socket is protected before capture. Native packet forwarding operates independently of Flutter.
+- **Apple:** macOS/iOS share a Network Extension packet provider and native TLS implementation. Both Xcode projects embed the extension. Signing, entitlement and physical-device validation are external gates.
+- **Server:** routeloom-vpn serve creates a Linux TUN, authenticates each device, checks source leases and egress policy, and dispatches return traffic using bounded queues. Kernel forwarding/NAT is deployment configuration. The older routeloom-server health command remains a separate loopback-only scaffold.
+- **Interface:** Flutter with English and Simplified Chinese, session-only profile import, Connect/Disconnect and native status reporting.
+- **Website:** static bilingual GitHub Pages site, independent of the tunnel host.
 
-- **Policy core (Rust):** pure validation and routing decisions. No network access, DNS resolution, credentials, or platform mutations. First match wins; a final action is mandatory. Match reasons retain source-line numbers.
-- **CLI:** exercises the core and exports the lossless domain-only PAC subset. Configuration keys remain stable English identifiers; output labels support English and Simplified Chinese. Detailed developer errors are currently English.
-- **Client (Flutter):** shared bilingual interface. Native adapters implement an explicit lifecycle. Pending adapters throw on connect; they never report a fake connected state.
-- **OS adapter:** Windows Wintun/service; Linux TUN/service; Android VpnService; Apple Network Extension. Desktop core communication will use authenticated local IPC. Mobile embedding will use a narrow native bridge. Neither bridge is implemented yet.
-- **Server:** current loopback-only health scaffold. Planned authenticated TCP/UDP egress, per-device credentials and revocation, enrollment, limits, and an admin CLI. The health scaffold is not a production HTTP stack.
-- **Website:** static HTML/CSS/JS with complete English and Chinese pages. No tracking, external fonts, or secrets. GitHub Pages is separate from the future tunnel server.
+## Current data path
 
-## Planned data path
+Application → OS IP capture → RL/1 packets over authenticated TLS 1.3 → Linux server TUN → host egress firewall/routing → destination.
 
-Application → OS capture or local HTTP/SOCKS endpoint → DNS/flow metadata → routing policy → direct / reject / encrypted tunnel → server authorization → permitted destination.
+Both IPv4 and IPv6 carry TCP, UDP and DNS packets. IP capture routes are configurable. The existing domain/PAC rules are **not yet integrated into packet processing**; the UI and docs do not imply otherwise.
 
-TCP transport: TLS 1.3 and HTTP/2 CONNECT. UDP transport: CONNECT-UDP over HTTP/3, subject to feasibility and interoperability testing. Any custom extension requires an ADR and public specification. Do not invent cryptography.
+## Planned integrations
 
-## DNS and bypasses
+HTTP/SOCKS ingress, domain-aware flow classification, HTTP/2 CONNECT and HTTP/3 CONNECT-UDP, credential enrollment/revocation without restart, automatic reconnect, persistent kill switch, and least-privilege service installers. RL/1 is an initial developer transport with TCP-over-TCP performance limitations, not a replacement for standard cryptography.
 
-Caller-supplied IPs are evaluated without implicit DNS. Future DNS integration must define resolver selection, bootstrap resolution, IPv6 behavior, and encrypted-DNS limitations. Hostname rules cannot reliably classify opaque HTTPS paths. IP geography is approximate and dataset licenses need review. A country rule does not create an exit node in that country.
-
-Internal-network access means explicit LAN or private-cloud routes. Remote networks behind NAT require a future connector. Protect server metadata and management endpoints; no private egress without explicit authorization.
+IP geography remains approximate and dataset licenses need review. A country rule does not create an exit node in that country. LAN/private-cloud egress requires explicit server allow-listing; NAT traversal connectors are future work.
 
 ## Lifecycle and rollback
 
-Prepare credentials → authenticate transport → apply DNS/routes → confirm ready. On failure, unwind owned changes and emit failure. Kill-switch behavior must preserve only configured direct exceptions. Reconnect, suspend/resume, network changes and coexistence with other VPNs require real-device tests.
+Validate profile → verify TLS → authenticate device/lease → install capture and DNS → report connected. Failures close capture and unwind owned desktop changes. Disconnect is fail-open: a persistent kill switch is not implemented. Hard kills, suspend/resume, network transitions and coexistence with other VPNs need real-device tests. No claim of universal DNS-leak prevention is made.
 
 ## Apple constraints
 
-Use supported Network Extension APIs and confirm entitlement/distribution requirements early. Do not use packet tunnels as arbitrary local content filters. iOS per-app VPN requires managed devices. Device-wide routing features may differ from Windows/Android.
+Use supported packet tunnels to remote servers. iOS per-app VPN requires managed devices. macOS App Store/development app-extension and Developer ID system-extension distribution differ; the latter packaging is not implemented.
 
-Primary references: [Apple TN3120](https://developer.apple.com/documentation/technotes/tn3120-expected-use-cases-for-network-extension-packet-tunnel-providers), [Apple TN3134](https://developer.apple.com/documentation/technotes/tn3134-network-extension-provider-deployment), [Android VPN](https://developer.android.com/develop/connectivity/vpn), [HTTP/2](https://www.rfc-editor.org/rfc/rfc9113.html), [CONNECT-UDP](https://www.rfc-editor.org/rfc/rfc9298.html).
+References: [Apple TN3120](https://developer.apple.com/documentation/technotes/tn3120-expected-use-cases-for-network-extension-packet-tunnel-providers), [Apple TN3134](https://developer.apple.com/documentation/technotes/tn3134-network-extension-provider-deployment), [Android VPN](https://developer.android.com/develop/connectivity/vpn), [rustls](https://docs.rs/rustls/), [CONNECT-UDP](https://www.rfc-editor.org/rfc/rfc9298.html).

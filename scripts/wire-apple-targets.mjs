@@ -13,7 +13,8 @@ for (const os of ['ios','macos']) {
  const sources=mac?'33CC10E92044A3C60003C045':'97C146EA1CF9000F007C117D';
  const project=mac?'33CC10E52044A3C60003C045':'97C146E61CF9000F007C117D';
  function editObject(id,fn) {
-   const start=text.indexOf('\t\t'+id+' ');
+   const match=new RegExp('^\\t\\t'+id+' [^\\n]* = \\{','m').exec(text);
+   const start=match?.index ?? -1;
    if(start<0)throw Error('Missing '+id);
    const end=text.indexOf('\n\t\t};',start)+6;
    text=text.slice(0,start)+fn(text.slice(start,end))+text.slice(end);

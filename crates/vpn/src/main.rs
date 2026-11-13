@@ -50,7 +50,14 @@ async fn connect(profile: Profile) -> Result<()> {
     #[cfg(target_os = "linux")]
     config.tun_name(format!("rl{}", std::process::id()));
     #[cfg(target_os = "windows")]
-    config.tun_name(format!("RouteLoom-{}", std::process::id()));
+    {
+        config.tun_name(format!("RouteLoom-{}", std::process::id()));
+        let dll = std::env::current_exe()?.with_file_name("wintun.dll");
+        config.platform_config(|p| {
+            p.wintun_file(dll);
+            p.wait_for_interfaces(true, true, Duration::from_secs(10));
+        });
+    }
     let dev = Arc::new(tun::create_as_async(&config).map_err(std::io::Error::other)?);
     let name = dev.tun_name().map_err(std::io::Error::other)?;
     let _routes = routes::Routes::apply(&name, &profile)?;
@@ -58,17 +65,17 @@ async fn connect(profile: Profile) -> Result<()> {
     let (mut reader, mut writer) = tokio::io::split(tls);
     let outgoing = async {
         let mut buf = vec![0; wire::MTU + 1];
+        let mut heartbeat = tokio::time::interval(Duration::from_secs(20));
+        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
-            match tokio::time::timeout(Duration::from_secs(20), dev.recv(&mut buf)).await {
-                Ok(n) => {
-                    let n = n?;
-                    let (src, _) = packet::addresses(&buf[..n])?;
-                    if src != profile.ipv4 && src != profile.ipv6 {
-                        continue;
-                    }
-                    wire::write_frame(&mut writer, wire::PACKET, &buf[..n]).await?;
-                }
-                Err(_) => wire::write_frame(&mut writer, wire::PING, &[]).await?,
+            tokio::select! {
+                n=dev.recv(&mut buf)=> {
+                    let n=n?;
+                    let (src,_)=packet::addresses(&buf[..n])?;
+                    if src!=profile.ipv4 && src!=profile.ipv6 {continue;}
+                    wire::write_frame(&mut writer,wire::PACKET,&buf[..n]).await?;
+                },
+                _=heartbeat.tick()=>wire::write_frame(&mut writer,wire::PING,&[]).await?,
             }
         }
         #[allow(unreachable_code)]

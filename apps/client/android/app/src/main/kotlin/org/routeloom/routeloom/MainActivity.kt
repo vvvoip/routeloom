@@ -16,6 +16,8 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "status" -> result.success(RouteLoomVpnService.state)
                 "disconnect" -> {
+                    pending?.error("cancelled", "VPN start cancelled", null)
+                    pending = null; profile = null
                     startService(Intent(this, RouteLoomVpnService::class.java).setAction("stop"))
                     result.success(null)
                 }
@@ -38,8 +40,15 @@ class MainActivity : FlutterActivity() {
         }
     }
     private fun startVpn() {
-        startForegroundService(Intent(this, RouteLoomVpnService::class.java).putExtra("profile", profile))
-        pending?.success(null)
+        if (profile == null || pending == null) return
+        try {
+            RouteLoomVpnService.markStarting()
+            startForegroundService(Intent(this, RouteLoomVpnService::class.java).putExtra("profile", profile))
+            pending?.success(null)
+        } catch (_: Exception) {
+            RouteLoomVpnService.markFailed()
+            pending?.error("vpn", "Unable to start VPN service", null)
+        }
         pending = null
         profile = null
     }

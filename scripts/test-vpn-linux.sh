@@ -48,11 +48,17 @@ for attempt in $(seq 1 30); do
   sleep 0.5
 done
 grep -q '"connected"' "$WORK/client.log" || { cat "$WORK/client.log" "$WORK/server.log"; exit 1; }
+ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" duplicate
+ip netns exec "$SERVER" python3 "$ROOT/scripts/vpn-traffic-test.py" serve > "$WORK/traffic.log" 2>&1 &
+sleep 0.5
+ip netns exec "$CLIENT" python3 "$ROOT/scripts/vpn-traffic-test.py" test
 ip netns exec "$CLIENT" ping -c 3 -W 2 10.77.0.1
 ip netns exec "$CLIENT" ping -6 -c 3 -W 2 fd77::1
 kill -INT "$CLIENT_PID"
 wait "$CLIENT_PID"
 test -z "$(ip -n "$CLIENT" -o link show type tun)"
+ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" token
+ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" spoof
 kill -INT "$SERVER_PID"
 wait "$SERVER_PID"
 echo "IPv4/IPv6 capture, encrypted round trip, and graceful interface cleanup passed."
