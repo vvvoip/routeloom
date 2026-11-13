@@ -28,8 +28,15 @@ fn runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 pub fn start_json(json: &str, protect: Protector) -> u64 {
-    let Ok(directory) = crate::cache::default_directory() else {
-        return 0;
+    let directory = match crate::cache::default_directory() {
+        Ok(directory) => directory,
+        Err(error) => {
+            eprintln!(
+                "RouteLoom engine state directory unavailable: {:?}",
+                error.kind()
+            );
+            return 0;
+        }
     };
     start_json_in(json, protect, directory)
 }
@@ -42,8 +49,13 @@ pub fn start_json_in(json: &str, protect: Protector, directory: std::path::PathB
             return 0;
         };
         let _guard = runtime().enter();
-        let Ok(engine) = crate::start_in(profile, protect, directory) else {
-            return 0;
+        let engine = match crate::start_in(profile, protect, directory) {
+            Ok(engine) => engine,
+            Err(error) => {
+                // The kind identifies permission/port conflicts without exposing profile data.
+                eprintln!("RouteLoom engine startup failed: {:?}", error.kind());
+                return 0;
+            }
         };
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
         let mut all = ENGINES.get_or_init(Default::default).lock().unwrap();

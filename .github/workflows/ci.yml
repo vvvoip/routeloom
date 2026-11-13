@@ -33,6 +33,7 @@ jobs:
           node-version: '24'
       - run: node website/build.mjs
       - run: node --test scripts/site.test.mjs scripts/localization.test.mjs scripts/release.test.mjs
+      - run: python3 scripts/test-apple-diagnostics.py
   client-tests:
     runs-on: ubuntu-24.04
     steps:
