@@ -109,7 +109,9 @@ final class TunnelBridge {
                     manager.loadFromPreferences { error in
                         guard error == nil else { self.finish(result,error); return }
                         do {
-                            try manager.connection.startVPNTunnel(options: ["profile": raw as NSString])
+                            // Start options are visible in macOS extended VPN status.
+                            // The provider reads the profile from the shared Keychain only.
+                            try manager.connection.startVPNTunnel()
                             self.manager = manager; self.finish(result,nil)
                         } catch { self.finish(result,error) }
                     }

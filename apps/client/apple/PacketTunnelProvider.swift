@@ -1,12 +1,14 @@
 import NetworkExtension
 import Network
 import Security
+import OSLog
 @_silgen_name("routeloom_start") private func engineStart(_ data: UnsafePointer<UInt8>, _ count: Int, _ protect: UnsafeRawPointer?, _ context: UInt) -> UInt64
 @_silgen_name("routeloom_write") private func engineWrite(_ handle: UInt64, _ data: UnsafePointer<UInt8>, _ count: Int) -> Bool
 @_silgen_name("routeloom_read") private func engineRead(_ handle: UInt64, _ data: UnsafeMutablePointer<UInt8>, _ capacity: Int) -> Int
 @_silgen_name("routeloom_status") private func engineStatus(_ handle: UInt64) -> UInt8
 @_silgen_name("routeloom_stop") private func engineStop(_ handle: UInt64)
 final class PacketTunnelProvider: NEPacketTunnelProvider {
+    private let logger = Logger(subsystem: "org.routeloom.vpn", category: "lifecycle")
     private let queue = DispatchQueue(label: "org.routeloom.packet")
     private let outputQueue = DispatchQueue(label: "org.routeloom.packet.output")
     private var handle: UInt64 = 0
@@ -16,25 +18,38 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var raw = Data()
     override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         queue.async {
+            self.logger.notice("Starting tunnel")
             self.generation &+= 1
             let generation = self.generation
             self.stopped = false; self.paused = false
             if self.handle != 0 { engineStop(self.handle); self.handle = 0 }
+            var stage = 1
             do {
-                let data = (options?["profile"] as? String)?.data(using: .utf8) ?? (try? BackgroundProfile.load())
-                guard let data = data else { throw TunnelError.invalid }
+                // Never accept credentials through OS-visible start options.
+                let data = try BackgroundProfile.load()
+                stage = 2
                 let p = try TunnelProfile.parse(data)
                 self.raw = data
+                stage = 3
                 self.handle = data.withUnsafeBytes { engineStart($0.bindMemory(to: UInt8.self).baseAddress!, data.count, nil, 0) }
                 guard self.handle != 0 else { throw TunnelError.invalid }
                 self.setTunnelNetworkSettings(self.settings(p)) { error in self.queue.async {
                     guard !self.stopped && self.generation == generation else { completionHandler(TunnelError.connection); return }
-                    if let error = error { engineStop(self.handle); self.handle = 0; completionHandler(error); return }
+                    if let error = error { engineStop(self.handle); self.handle = 0; completionHandler(self.startupFailure(4, error)); return }
+                    self.logger.notice("Tunnel network settings installed")
                     self.reasserting = true
                     completionHandler(nil); self.readPackets(generation); self.poll(generation)
                 } }
-            } catch { completionHandler(error) }
+            } catch { completionHandler(self.startupFailure(stage, error)) }
         }
+    }
+    private func startupFailure(_ stage: Int, _ error: Error) -> NSError {
+        // Only the stage and numeric error code are logged; never a profile or error userInfo.
+        let code = (error as NSError).code
+        logger.error("Tunnel startup failed at stage \(stage, privacy: .public), error code \(code, privacy: .public)")
+        let messages = [1: "Shared Keychain profile unavailable", 2: "Invalid saved profile", 3: "Native engine could not start", 4: "VPN network settings failed"]
+        return NSError(domain: "RouteLoom.TunnelStartup", code: stage,
+                       userInfo: [NSLocalizedDescriptionKey: messages[stage] ?? "Tunnel startup failed"])
     }
     private func settings(_ p: TunnelProfile) -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: p.host)
@@ -111,6 +126,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
-        queue.async { self.generation &+= 1; self.stopped = true; engineStop(self.handle); self.handle = 0; self.raw = Data(); completionHandler() }
+        queue.async {
+            self.logger.notice("Stopping tunnel, reason \(reason.rawValue, privacy: .public)")
+            self.generation &+= 1; self.stopped = true; engineStop(self.handle); self.handle = 0; self.raw = Data(); completionHandler()
+        }
     }
 }

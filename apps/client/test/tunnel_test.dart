@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -94,4 +95,109 @@ void main() {
     await subscription.cancel();
     messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
   });
+
+  test(
+    'native status follows OS recovery without starting another VPN',
+    () async {
+      final adapter = NativeTunnelAdapter();
+      final states = <TunnelState>[];
+      final recovered = Completer<void>();
+      final subscription = adapter.states.listen((state) {
+        states.add(state);
+        if (states.length == 4) recovered.complete();
+      });
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      addTearDown(() async {
+        adapter.dispose();
+        await subscription.cancel();
+        messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
+      });
+      var polls = 0;
+      messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (
+        call,
+      ) async {
+        expect(call.method, 'status');
+        return [
+          'connected',
+          'disconnected',
+          'reconnecting',
+          'connected',
+        ][polls++];
+      });
+      await adapter.refresh();
+      await recovered.future.timeout(const Duration(seconds: 12));
+      expect(states, [
+        TunnelState.connected,
+        TunnelState.disconnected,
+        TunnelState.reconnecting,
+        TunnelState.connected,
+      ]);
+      adapter.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      expect(polls, 4);
+    },
+  );
+
+  test('temporary native status failure is retried', () async {
+    final adapter = NativeTunnelAdapter();
+    final states = <TunnelState>[];
+    final recovered = Completer<void>();
+    final subscription = adapter.states.listen((state) {
+      states.add(state);
+      if (state == TunnelState.connected) recovered.complete();
+    });
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    addTearDown(() async {
+      adapter.dispose();
+      await subscription.cancel();
+      messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
+    });
+    var polls = 0;
+    messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (
+      call,
+    ) async {
+      expect(call.method, 'status');
+      if (polls++ == 0) throw PlatformException(code: 'temporary');
+      return 'connected';
+    });
+    await adapter.refresh();
+    await recovered.future.timeout(const Duration(seconds: 8));
+    expect(states, [TunnelState.failed, TunnelState.connected]);
+  });
+
+  test(
+    'late status cannot overwrite a newer refresh or resume polling after disposal',
+    () async {
+      final adapter = NativeTunnelAdapter();
+      final states = <TunnelState>[];
+      final subscription = adapter.states.listen(states.add);
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      addTearDown(() async {
+        adapter.dispose();
+        await subscription.cancel();
+        messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
+      });
+      final pending = Completer<String>();
+      var polls = 0;
+      messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (
+        call,
+      ) async {
+        if (polls++ == 0) return pending.future;
+        return 'connected';
+      });
+      final first = adapter.refresh();
+      await Future<void>.delayed(Duration.zero);
+      await adapter.refresh();
+      pending.complete('disconnected');
+      await first;
+      await Future<void>.delayed(Duration.zero);
+      expect(states, [TunnelState.connected]);
+      adapter.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 1100));
+      expect(polls, 2);
+    },
+  );
 }

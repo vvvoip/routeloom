@@ -27,6 +27,10 @@ sudo target/release/routeloom-vpn serve .local/demo/server.json
 
 配置保存到系统保护的凭据存储，Apple 后台配置放在共享 Keychain，不将令牌写入 VPN 偏好设置。TLS 校验证书和服务器名称后才发送令牌；重连期间保留捕获。普通断开清理拥有的路由/DNS，已启用的持久保护必须通过“恢复直接上网”移除。详见[功能与限制](client-features.zh-CN.md)。
 
+Apple 扩展仅从共享 Keychain 读取配置，不再通过 VPN 启动选项传递凭据，因为 macOS 的扩展状态会显示这些选项。macOS 的 **PacketTunnel** target 也必须开启 App Sandbox → Incoming Connections (Server)，才能启动本地 PAC/HTTP 代理；仅给 Runner 开启不够。监听地址仍为 `127.0.0.1`，不会开放给局域网。
+
+使用 `python3 scripts/diagnose-apple.py` 获取不含凭据的状态摘要。不要分享旧版的完整 `scutil --nc status` 输出，其中可能包含令牌。新版启动错误域为 `RouteLoom.TunnelStartup`：1 表示共享 Keychain，2 表示配置校验，3 表示原生引擎，4 表示网络设置。`org.routeloom.vpn` 日志仅记录阶段、错误码和停止原因，不记录配置内容。
+
 ## 验证和范围
 
 `cargo test --workspace --locked` 检查 TLS、认证、数据包、租约和路由排除。`sudo bash scripts/test-vpn-linux.sh` 使用真实 TUN 接口验证 IPv4/IPv6 往返及清理；测试中的 DNS 命令为桩实现，不能证明 DNS 防泄漏。Flutter 测试覆盖配置校验及连接界面。

@@ -39,7 +39,11 @@ Open the generated Runner Xcode workspace on your Mac. Both projects include a P
 
 Build and run on your Mac and physical iPhone/iPad, then import the profile and grant VPN permission. Unsigned CI builds only verify compilation and embedding. App Store/TestFlight/Developer ID distribution and entitlement approval are separate. The macOS app-extension path must use a distribution method supported by Apple; a Developer ID system-extension variant is not implemented here.
 
-Profiles are passed as start options and retained in the app/extension shared Keychain for OS restart; secret profiles are not saved to VPN preferences. Build native libraries with scripts/prepare-apple.sh before opening Xcode. The OS may retain the non-secret VPN configuration. iOS per-app routing still requires managed devices.
+Profiles are retained only in the app/extension shared Keychain for provider startup and OS restart. Do not pass profiles in VPN start options: macOS exposes those options in extended VPN status. Build native libraries with scripts/prepare-apple.sh before opening Xcode. The OS may retain the non-secret VPN configuration. iOS per-app routing still requires managed devices.
+
+On macOS, **PacketTunnel**, as well as Runner, needs App Sandbox → Incoming Connections (Server) for the loopback PAC/HTTP proxy. Missing this entitlement can prevent engine startup whenever `pac_port` is nonzero. The listener stays bound to `127.0.0.1`; this entitlement does not expose it to the LAN.
+
+Run `python3 scripts/diagnose-apple.py` for a credential-free VPN status summary. Do not share raw `scutil --nc status` output from older builds: it may contain the profile token. New startup errors use domain `RouteLoom.TunnelStartup` with codes 1 (shared Keychain), 2 (profile validation), 3 (native engine), or 4 (network settings). The `org.routeloom.vpn` lifecycle log records only stage/error/stop codes, never profiles.
 
 ## Verification
 

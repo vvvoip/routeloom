@@ -183,6 +183,7 @@ class NativeTunnelAdapter implements TunnelAdapter {
   bool _disposed = false;
   bool _starting = false;
   int _operation = 0;
+  int _pollSequence = 0;
   @override
   Stream<TunnelState> get states => _states.stream;
   void _emit(TunnelState value) {
@@ -232,26 +233,38 @@ class NativeTunnelAdapter implements TunnelAdapter {
 
   Future<void> _poll(int operation) async {
     if (_disposed || operation != _operation) return;
+    _timer?.cancel();
+    final sequence = ++_pollSequence;
+    bool current() =>
+        !_disposed && operation == _operation && sequence == _pollSequence;
+    var supported = true;
+    var interval = const Duration(seconds: 5);
     try {
       final status = await channel.invokeMethod<String>('status');
-      if (_disposed || operation != _operation) return;
+      if (!current()) return;
       final state = TunnelState.values.firstWhere(
         (s) => s.name == status,
         orElse: () => TunnelState.failed,
       );
       _emit(state);
-      _timer?.cancel();
       if (state == TunnelState.reconnecting ||
           state == TunnelState.blocked ||
           state == TunnelState.connecting ||
           state == TunnelState.connected ||
           state == TunnelState.disconnecting) {
-        _timer = Timer(const Duration(seconds: 1), () => _poll(operation));
+        interval = const Duration(seconds: 1);
       }
     } on MissingPluginException {
-      _emit(TunnelState.unavailable);
+      supported = false;
+      if (current()) _emit(TunnelState.unavailable);
     } catch (_) {
-      if (operation == _operation) _emit(TunnelState.failed);
+      if (current()) _emit(TunnelState.failed);
+    } finally {
+      // The OS can reconnect on demand after a disconnect or temporary IPC failure.
+      // Keep observing it without starting a tunnel or changing protection settings.
+      if (current() && supported) {
+        _timer = Timer(interval, () => _poll(operation));
+      }
     }
   }
 
