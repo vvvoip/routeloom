@@ -359,6 +359,48 @@ impl Policy {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn bundled_china_lan_policy_routes_destinations_and_overseas_exceptions() {
+        let text = include_str!("../../../apps/client/assets/china-lan.rules");
+        assert!(text.len() <= 16384);
+        let policy = Policy::parse(text).unwrap();
+        policy.validate_default_group().unwrap();
+        for network in [Network::Tcp, Network::Udp] {
+            for host in [
+                "192.168.1.1",
+                "10.2.3.4",
+                "fd12::1",
+                "fe80::1",
+                "::1",
+                "printer.local",
+                "www.gov.cn",
+                "www.baidu.com",
+                "www.qq.com",
+                "www.bilibili.com",
+            ] {
+                let flow = Flow::new(host, None, 443, network).unwrap();
+                assert_eq!(policy.evaluate(&flow).action, Action::Direct, "{host}");
+            }
+            for host in [
+                "www.google.com",
+                "api.ipify.org",
+                "wetv.qq.com",
+                "hk.weibo.com",
+                "c.mi.com",
+                "baidu.com.evil.test",
+                "notbaidu.com",
+                "8.8.8.8",
+                "2606:4700:4700::1111",
+            ] {
+                let flow = Flow::new(host, None, 443, network).unwrap();
+                assert_eq!(
+                    policy.evaluate(&flow).action,
+                    Action::Proxy("default".into()),
+                    "{host}"
+                );
+            }
+        }
+    }
     fn flow(host: &str) -> Flow {
         Flow::new(host, None, 443, Network::Tcp).unwrap()
     }

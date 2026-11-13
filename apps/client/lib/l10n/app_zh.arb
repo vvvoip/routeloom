@@ -1,5 +1,10 @@
 {
   "@@locale": "zh",
+  "chinaPreset": "中国网站和局域网直连",
+  "chinaPresetDescription": "自动模式预设：局域网、.cn 和列表中的中国网站直连，其他目标通过服务器。请先断开连接再应用。",
+  "replaceRulesWarning": "将此配置的路由规则替换为中国网站和局域网预设，并切换到自动模式？服务器凭据和其他设置将保留。",
+  "applyPreset": "应用预设",
+  "presetApplied": "预设已保存，已选择自动模式。连接后将使用新规则。",
   "appTitle": "RouteLoom",
   "tagline": "你的流量，由你决定方向。",
   "developmentLabel": "开发者预览",

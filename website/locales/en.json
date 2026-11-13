@@ -46,7 +46,7 @@
     "BLOCK — the explicit domain rule matches."
   ],
   "howTitle": "Your device. Your rules.<br>Your server.",
-  "howIntro": "Deploy a server, import a device profile, and connect. Fine-grained VPN rules and automated enrollment are still in development.",
+  "howIntro": "Deploy a server, import a device profile, and connect. All five clients support routing rules, traffic monitoring and the China/LAN direct preset.",
   "steps": [
     [
       "01",
@@ -108,7 +108,7 @@
     [
       "03",
       "Routing and everyday settings",
-      "Domain/PAC rules, reconnect, saved profiles, protection and signed updates.",
+      "Traffic dashboard on all five platforms, Auto/Proxy/Direct modes, China routing, reconnect, profiles and updates.",
       "Alpha"
     ],
     [
@@ -131,7 +131,7 @@
     ],
     [
       "Explore routing rules",
-      "Edit ordered domain, CIDR, port and protocol rules in the client. The local PAC/HTTP proxy uses the same engine. Encrypted-DNS apps follow IP/default rules."
+      "Apply the China and LAN direct preset or edit domain, CIDR, port and protocol rules. Inspect actual routes in Traffic. Auto DNS still resolves through the server."
     ],
     [
       "Build from source",

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../l10n/generated/app_localizations.dart';
 import '../services/profile_store.dart';
+import '../services/routing_presets.dart';
 import '../services/protection.dart';
 import '../services/updates.dart';
 import '../platforms/tunnel_adapter.dart';
@@ -170,6 +171,44 @@ class _FeaturePanelState extends State<FeaturePanel> {
     rules.dispose();
   }
 
+  Future<void> _applyChinaPreset() async {
+    if (widget.active || _busy) return;
+    final saved = widget.store.active;
+    if (saved == null) return;
+    await _run(() async {
+      final policy = await RoutingPresets.chinaAndLan();
+      if (!mounted || widget.active) return;
+      final t = AppLocalizations.of(context);
+      final previous = saved.profile.options['policy'] as String;
+      if (previous.trim() != 'final proxy:default' && previous != policy) {
+        final accepted = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: Text(t.chinaPreset),
+            content: Text(t.replaceRulesWarning),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(t.cancel),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: Text(t.applyPreset),
+              ),
+            ],
+          ),
+        );
+        if (accepted != true) return;
+      }
+      if (!mounted || widget.active || widget.store.active?.id != saved.id)
+        return;
+      await widget.store.updateActive(
+        saved.profile.withOptions({'policy': policy, 'mode': 'auto'}),
+      );
+      if (mounted) _error(t.presetApplied);
+    });
+  }
+
   Future<void> _unlock() async {
     final t = AppLocalizations.of(context);
     final yes = await showDialog<bool>(
@@ -284,6 +323,16 @@ class _FeaturePanelState extends State<FeaturePanel> {
                           ),
                   ),
                   Text(t.routePolicyDescription),
+                  const SizedBox(height: 12),
+                  Text(t.chinaPresetDescription),
+                  OutlinedButton.icon(
+                    key: const Key('china-lan-preset'),
+                    onPressed: widget.active || _busy
+                        ? null
+                        : _applyChinaPreset,
+                    icon: const Icon(Icons.alt_route),
+                    label: Text(t.chinaPreset),
+                  ),
                   const SizedBox(height: 8),
                   Text(t.pacDescription),
                   SelectableText(

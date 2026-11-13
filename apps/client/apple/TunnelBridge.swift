@@ -15,6 +15,21 @@ final class TunnelBridge {
         channel.setMethodCallHandler { [weak self] call, result in self?.handle(call, result) }
     }
     private var providerID: String { (Bundle.main.bundleIdentifier ?? "org.routeloom.routeloom") + ".PacketTunnel" }
+    // A stalled/restarted extension must not leave Flutter polling permanently in flight.
+    // Completion and timeout run on the main queue and deliver exactly one result.
+    private func request(_ session: NETunnelProviderSession, _ message: String, _ done: @escaping (Data?) -> Void) {
+        var completed = false
+        let finish: (Data?) -> Void = { data in
+            DispatchQueue.main.async {
+                guard !completed else { return }
+                completed = true
+                done(data.flatMap { $0.count <= 1_048_576 ? $0 : nil })
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4) { finish(nil) }
+        do { try session.sendProviderMessage(Data(message.utf8), responseHandler: finish) }
+        catch { finish(nil) }
+    }
     private func load(_ done: @escaping (NETunnelProviderManager?, Error?) -> Void) {
         NETunnelProviderManager.loadAllFromPreferences { managers, error in
             DispatchQueue.main.async {
@@ -25,14 +40,28 @@ final class TunnelBridge {
         }
     }
     private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
-        if call.method == "status" {
+        if call.method == "snapshot" || call.method == "monitorCommand" {
+            let snapshot = call.method == "snapshot"
+            let command = call.arguments as? String ?? ""
+            guard snapshot || command == "clear" || command == "diagnose" else { result(false); return }
+            load { manager, error in
+                // sendProviderMessage can launch a stopped extension. Reading the dashboard must not.
+                guard error == nil, let session = manager?.connection as? NETunnelProviderSession,
+                      session.status == .connected || session.status == .reasserting else {
+                    if snapshot { result(nil) } else { result(false) }; return
+                }
+                self.request(session, snapshot ? "snapshot" : "monitor:" + command) { data in
+                    let text = data.flatMap { String(data: $0, encoding: .utf8) }
+                    if snapshot { result(text) } else { result(text == "ok") }
+                }
+            }
+        } else if call.method == "status" {
             load { manager, error in
                 if error != nil { result("failed"); return }
                 switch manager?.connection.status {
                 case .connected, .reasserting:
                     if let session = manager?.connection as? NETunnelProviderSession {
-                        do { try session.sendProviderMessage(Data("status".utf8)) { data in result(data.flatMap { String(data:$0,encoding:.utf8) } ?? "reconnecting") } }
-                        catch { result("reconnecting") }
+                        self.request(session, "status") { data in result(data.flatMap { String(data:$0,encoding:.utf8) } ?? "reconnecting") }
                     } else { result("reconnecting") }
                 case .connecting: result("connecting")
                 case .disconnecting: result("disconnecting")
@@ -85,6 +114,8 @@ final class TunnelBridge {
             load { existing, error in
                 guard error == nil else { self.finish(result, error); return }
                 if let status = existing?.connection.status, status == .connected || status == .connecting || status == .reasserting || status == .disconnecting {
+                    // On Demand may race a mode/profile edit. Never silently resume old routing rules.
+                    guard let saved = try? BackgroundProfile.load(), saved == data else { self.finish(result,TunnelError.connection); return }
                     if let session = existing?.connection as? NETunnelProviderSession {
                         do { try session.sendProviderMessage(Data("resume".utf8)) { _ in self.finish(result,nil) } }
                         catch { self.finish(result,error) }

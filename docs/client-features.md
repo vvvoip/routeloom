@@ -1,9 +1,13 @@
 # Client settings
 [简体中文](client-features.zh-CN.md) · [Installation](install.md)
 
-Version 0.3 adds a live traffic dashboard, routing modes and a connection test on Windows, Android and Linux, in English and Simplified Chinese. The existing settings remain available on all five platforms; the new dashboard UI is not yet available on Apple. Apple apps still require your Xcode signature. This is an experimental alpha; build checks do not replace device testing.
+Version 0.4 provides the live traffic dashboard, Auto/Proxy/Direct modes, connection testing and a China/LAN routing preset on Windows, macOS, Linux, Android and iOS, in English and Simplified Chinese. Apple apps still require your Xcode signature. This is an experimental alpha; build checks do not replace device testing. See [upgrading an existing Apple installation](upgrade-apple.md).
 
 ## Profiles and routing
+
+To use the bundled strategy, disconnect, select your saved profile in **Settings**, and choose **China and LAN direct**. This selects Auto and replaces that profile's routing policy; credentials, reconnect and protection settings remain intact. Custom rules require confirmation before replacement. If protection keeps the VPN blocked, use **Restore direct internet** first, then apply the preset and reconnect.
+
+The preset sends local IPv4/IPv6 networks, `.cn`, Chinese IDN suffixes and a curated list of mainland services directly. Other destinations use your server. Selected overseas-service exceptions come before broader direct rules. This is not a complete China GeoIP/GeoSite database; literal IPs and app-managed encrypted DNS follow IP/default rules. Auto DNS resolution still uses the server, including names whose connections go direct. Private local names need a resolver that knows them. [Sources and license](routing-preset-sources.md).
 
 Import a private profile from the clipboard. It is saved in the operating system's protected credential storage. Select, rename, edit or delete profiles under **Saved profiles**. A locked/unavailable keyring is reported explicitly; a session-only import is then possible. Linux needs an unlocked Secret Service keyring. Android and Apple also keep a protected copy for the background VPN provider.
 
