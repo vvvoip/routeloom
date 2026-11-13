@@ -31,4 +31,4 @@ sudo target/release/routeloom-vpn serve .local/demo/server.json
 
 `cargo test --workspace --locked` 检查 TLS、认证、数据包、租约和路由排除。`sudo bash scripts/test-vpn-linux.sh` 使用真实 TUN 接口验证 IPv4/IPv6 往返及清理；测试中的 DNS 命令为桩实现，不能证明 DNS 防泄漏。Flutter 测试覆盖配置校验及连接界面。
 
-发布前必须完成五个平台的权限、TCP/UDP/DNS、IPv6、错误证书/令牌、服务器断连、睡眠唤醒、网络切换及 VPN 共存测试。域名规则、PAC 和地理规则尚未接入 VPN 数据路径；自动注册、自动重连、持久断网保护和生产安装器仍待开发。协议详见 [RL/1](rl1.md)。
+发布前必须完成五个平台的权限、TCP/UDP/DNS、IPv6、错误证书/令牌、服务器断连、睡眠唤醒、网络切换及 VPN 共存测试。0.2 已加入共享 RL/2 域名/IP 分流、PAC、自动重连、持久保护控制、安全配置和签名更新检查，详见[功能与恢复指南](client-features.zh-CN.md)。地理规则、自动注册、完整真机验证及正式安装器仍待完成。协议详见 [RL/2](rl2.md)，服务端保留 RL/1 兼容。

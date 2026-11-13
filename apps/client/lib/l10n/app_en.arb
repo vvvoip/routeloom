@@ -11,7 +11,7 @@
   "connectionDescription": "Route TCP, UDP and DNS through authenticated TLS 1.3 connections to your server, with per-flow routing rules.",
   "connect": "Connect",
   "routePolicy": "Routing policy",
-  "routePolicyDescription": "Rules run in order: domain, domain-suffix, CIDR, port, or network. Each flow can use direct, proxy:default, or block. DNS names use session-specific addresses; apps with their own encrypted DNS use IP/default rules.",
+  "routePolicyDescription": "Rules run in order: domain, domain-suffix, CIDR, port, or network. Each flow uses direct, proxy:default, or block. Stable synthetic DNS addresses preserve domain identity; encrypted-DNS apps use IP/default rules.",
   "launchScope": "One launch. Five platforms.",
   "launchDescription": "Windows, macOS, Linux, Android, and iOS/iPadOS are required for the first public usable release.",
   "language": "Language",
@@ -23,8 +23,8 @@
   "privacy": "Privacy by design",
   "privacyDescription": "Profiles are saved in your system's protected credential storage. No analytics or packet-content logs. Capture stays active during reconnect; persistent protection uses each platform's firewall or VPN controls.",
   "appleLimit": "Apple routing and distribution constraints apply. iOS per-app VPN requires managed devices.",
-  "linuxDetail": "TUN interface and a system service",
-  "windowsDetail": "Signed Wintun driver and a background service",
+  "linuxDetail": "TUN and a polkit helper",
+  "windowsDetail": "Wintun and an administrator helper",
   "macosDetail": "Network Extension and signed distribution",
   "androidDetail": "VpnService and foreground lifecycle",
   "iosDetail": "Packet Tunnel Provider and required entitlements",
@@ -72,5 +72,7 @@
   "operationFailed": "The operation failed. Check system permissions, secure storage, and the profile.",
   "reconnecting": "Reconnecting — traffic held",
   "trafficBlocked": "Traffic blocked",
-  "licenses": "Open-source licenses"
+  "licenses": "Open-source licenses",
+  "guardStatusOn": "Android system lockdown is active.",
+  "guardStatusOff": "Android system lockdown is not active. Enable it in VPN settings."
 }

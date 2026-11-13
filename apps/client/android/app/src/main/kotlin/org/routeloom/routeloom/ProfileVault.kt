@@ -30,5 +30,5 @@ internal object ProfileVault {
         val cipher = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, bytes.copyOfRange(0,12))) }
         return String(cipher.doFinal(bytes.copyOfRange(12,bytes.size)), Charsets.UTF_8)
     }
-    fun clear(context: Context) { context.getSharedPreferences(alias, Context.MODE_PRIVATE).edit().clear().commit() }
+    fun clear(context: Context) { check(context.getSharedPreferences(alias, Context.MODE_PRIVATE).edit().clear().commit()) }
 }

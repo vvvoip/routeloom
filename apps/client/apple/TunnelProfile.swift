@@ -72,6 +72,10 @@ enum BackgroundProfile {
             guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw TunnelError.invalid }
         } else if result != errSecSuccess { throw TunnelError.invalid }
     }
+    static func clear() throws {
+        let result = SecItemDelete(try query() as CFDictionary)
+        guard result == errSecSuccess || result == errSecItemNotFound else { throw TunnelError.invalid }
+    }
     static func load() throws -> Data {
         var item = try query(); item[kSecReturnData as String] = true; item[kSecMatchLimit as String] = kSecMatchLimitOne
         var result: CFTypeRef?

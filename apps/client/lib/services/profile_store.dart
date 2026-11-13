@@ -141,6 +141,30 @@ class ProfileStore {
     }
   }
 
+  Future<void> choose(String? id) async {
+    if (id != null && !profiles.any((p) => p.id == id))
+      throw StateError('Unknown profile');
+    final previous = selected;
+    selected = id;
+    try {
+      await save();
+    } catch (_) {
+      selected = previous;
+      rethrow;
+    }
+  }
+
+  Future<void> setAutomaticUpdates(bool value) async {
+    final previous = automaticUpdates;
+    automaticUpdates = value;
+    try {
+      await save();
+    } catch (_) {
+      automaticUpdates = previous;
+      rethrow;
+    }
+  }
+
   Future<void> delete(String id) async {
     final previous = [...profiles];
     final previousSelected = selected;

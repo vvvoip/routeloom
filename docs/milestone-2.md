@@ -1,12 +1,19 @@
-# Stateful client milestone
+# Stateful client milestone validation
 
-Implementation work in progress. Do not publish a binary claiming these guarantees until its platform checks pass.
+Version 0.2 implements shared RL/2 domain/IP routing, PAC/HTTP CONNECT, reconnect, persistent OS protection controls, protected saved profiles and signed update handling. English and Simplified Chinese share the same settings. See [features and limitations](client-features.md).
 
-- Add a shared Rust flow engine for Windows/Linux and native mobile/Apple libraries, using a bounded smoltcp network stack. Virtual DNS assigns session-stable addresses to names; rules are evaluated per TCP/UDP flow. Unknown/stale virtual addresses are blocked, never reused for another name.
-- Keep RL/1 for existing clients. Add TLS 1.3 ALPN routeloom/2 for individually authenticated TCP/UDP flows, DNS resolution and a heartbeat control connection. Retain server egress ACLs and per-device/global limits.
-- Serve a loopback HTTP CONNECT/HTTP proxy and generated PAC from the same policy. No arbitrary PAC JavaScript is evaluated. Domain rules require the app to use RouteLoom DNS or the local proxy; opaque DoH/literal-IP traffic follows IP/default rules.
-- Reconnect with bounded exponential backoff and retain capture while offline. No implicit direct fallback.
-- Persistent blocking: Windows WFP persistent filters, Linux owned nftables table and boot unit; Android system always-on/lockdown settings; Apple includeAllNetworks/on-demand with the OS's documented exceptions. Explicit direct rules are intentional exceptions when connected.
-- Saved profiles use platform secure storage. Android/Apple providers retain encrypted/Keychain credentials for OS restart. Never save plaintext tokens or log destinations.
-- Automatic update checking and verified staged downloads; installation remains subject to OS permissions, signing and store rules. Apple personal development builds require the user's Xcode signing flow.
-- UI, instructions, errors and settings are supplied in English and Simplified Chinese.
+## Verified during development
+
+- Local Windows Rust workspace: 29 tests pass, including TLS rejection, policy precedence, encrypted DNS-journal persistence/profile separation, archive-path confinement and protecting a Windows socket before binding.
+- Flutter: 15 tests pass, including secure profile persistence, failed vault writes, signed update tampering/rollback/path rejection and five-platform UI rendering.
+- Bilingual website/localization/release-metadata checks pass.
+- Linux CI namespaces: IPv4/IPv6 TCP/UDP capture, direct/proxy/blocked domains sharing one IP, PAC, automatic recovery after server suspension, protection after helper disconnect, preservation of unrelated firewall tables, unlock recovery and invalid credentials/private destinations.
+- Windows CI: packaged application launch, persistent WFP block after the installing process exits, explicit unlock recovery, successful package replacement, hash rejection, unsafe archive rejection, failed replacement rollback and preservation of private state.
+- Live Windows Wintun against the authorized Debian 12 cloud server: new RL/2 HTTPS/public exit address, DNS, PAC and HTTP CONNECT pass; normal disconnect removes the owned adapter and routes. Persistent filters were tested only on the disposable CI runner, not on the owner’s workstation/server.
+- Upgraded cloud service: legacy RL/1 TLS/DNS/heartbeat compatibility and RL/2 rejection of wrong credentials/unauthorized private destinations pass. The unrelated existing proxy service remains active.
+
+## Remaining gates
+
+The latest commit must pass the five-platform build workflow before publication. Earlier unsigned Apple builds passed; updated Apple builds still require CI and then the owner’s Xcode signing and physical-device checks. Android physical-device validation is also pending. Reboot, sleep/wake, network changes, battery behavior, competing VPNs and independent security review are not established by these tests.
+
+Personally signed Apple clients check for releases but require Xcode to install updates. Android OS lockdown is a user setting. See [platform matrix](platforms.md) for distribution limits.

@@ -40,6 +40,18 @@ final class TunnelBridge {
                 default: result("disconnected")
                 }
             }
+        } else if call.method == "forgetProfile" {
+            guard let raw = call.arguments as? String, let data = raw.data(using: .utf8), let requested = try? TunnelProfile.parse(data) else { self.finish(result,TunnelError.invalid); return }
+            guard let savedData = try? BackgroundProfile.load(), let saved = try? TunnelProfile.parse(savedData), saved.device == requested.device, saved.endpoint == requested.endpoint else { result(nil); return }
+            load { manager, error in
+                guard error == nil else { self.finish(result,error); return }
+                if let status = manager?.connection.status, status == .connected || status == .connecting || status == .reasserting || status == .disconnecting { self.finish(result,TunnelError.connection); return }
+                let clear = { (error: Error?) in
+                    if let error = error { self.finish(result,error); return }
+                    do { try BackgroundProfile.clear(); self.finish(result,nil) } catch { self.finish(result,error) }
+                }
+                if let manager = manager { manager.removeFromPreferences(completionHandler: clear) } else { clear(nil) }
+            }
         } else if call.method == "guardStatus" {
             load { manager, _ in result((manager?.protocolConfiguration as? NETunnelProviderProtocol)?.includeAllNetworks == true) }
         } else if call.method == "unlock" {
@@ -87,7 +99,7 @@ final class TunnelBridge {
                 configuration.excludeLocalNetworks = false
                 let onDemand = NEOnDemandRuleConnect(); onDemand.interfaceTypeMatch = .any
                 manager.onDemandRules = [onDemand]
-                manager.isOnDemandEnabled = profile.options?.auto_reconnect ?? true
+                manager.isOnDemandEnabled = profile.options?.kill_switch == true || (profile.options?.auto_reconnect ?? true)
                 // Only the shared Keychain contains the background profile.
                 manager.protocolConfiguration = configuration
                 manager.localizedDescription = "RouteLoom"

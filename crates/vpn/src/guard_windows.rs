@@ -53,6 +53,19 @@ unsafe fn clear(h: HANDLE) -> Result<()> {
 fn wide(value: &std::ffi::OsStr) -> Vec<u16> {
     value.encode_wide().chain(Some(0)).collect()
 }
+pub fn is_enabled() -> Result<bool> {
+    unsafe {
+        let engine = open()?;
+        let mut provider = null_mut();
+        let code = FwpmProviderGetByKey0(engine.0, &PROVIDER, &mut provider);
+        if code == 0x80320005 {
+            return Ok(false);
+        }
+        check(code)?;
+        FwpmFreeMemory0((&mut provider as *mut *mut FWPM_PROVIDER0).cast());
+        Ok(true)
+    }
+}
 pub fn disable() -> Result<()> {
     unsafe {
         let engine = open()?;
@@ -289,6 +302,13 @@ pub fn self_test() -> Result<()> {
     if !applied {
         return Err(std::io::Error::other("Persistent filter install failed"));
     }
+    if !is_enabled()? {
+        return Err(std::io::Error::other(
+            "Persistent protection was not detected",
+        ));
+    }
+    // Reconnecting refreshes the current interface permit in the same transaction.
+    enable("RouteLoom-GuardTest")?;
     let blocked = !probe()?;
     disable()?;
     drop(restore);

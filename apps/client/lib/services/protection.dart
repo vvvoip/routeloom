@@ -2,6 +2,15 @@ import 'dart:io';
 import '../platforms/tunnel_adapter.dart';
 
 class Protection {
+  static Future<void> forgetProfile(TunnelProfile profile) async {
+    if (Platform.isAndroid || Platform.isIOS || Platform.isMacOS) {
+      await NativeTunnelAdapter.channel.invokeMethod<void>(
+        'forgetProfile',
+        profile.json,
+      );
+    }
+  }
+
   static Future<bool> nativeStatus() async =>
       await NativeTunnelAdapter.channel.invokeMethod<bool>('guardStatus') ??
       false;

@@ -81,7 +81,7 @@ async fn connect(profile: Profile) -> Result<()> {
     let dev = Arc::new(tun::create_as_async(&config).map_err(std::io::Error::other)?);
     let name = dev.tun_name().map_err(std::io::Error::other)?;
     let _routes = routes::Routes::apply(&name, &profile)?;
-    if profile.options.kill_switch {
+    if profile.options.kill_switch || guard::is_enabled()? {
         guard::enable(&name)?;
     }
     println!("{{\"state\":\"connecting\"}}");

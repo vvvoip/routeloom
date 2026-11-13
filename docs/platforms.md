@@ -1,17 +1,17 @@
 # Platform matrix / 平台能力表
 
-All five platforms have capture implementations. This is a developer milestone, not a signed, device-validated release. 所有平台均已加入捕获代码；仍需签名、真机测试和生产打包。
+Version 0.2 shares a Rust TCP/UDP policy engine and English/Chinese Flutter settings across all five platforms. This is an experimental alpha, not a complete device-validated release.
 
-| Platform | Implemented capture | Current validation | Remaining release gates |
+| Platform | Capture and protection | Distribution | Validation still needed |
 |---|---|---|---|
-| Windows | Wintun + Rust TLS helper | Compilation and Rust tests | Real adapter/routes/DNS, installed privileged service, signing |
-| macOS | PacketTunnelProvider + native TLS | Unsigned Xcode build | Apple signing, VPN entitlement, real-device lifecycle, distribution |
-| Linux | TUN + Rust TLS helper | Isolated IPv4/IPv6 TUN integration | Resolver variants, service privilege boundary, real-network testing |
-| Android | VpnService + native TLS | Debug APK build | Physical devices, permission/revocation, background/network changes |
-| iOS/iPadOS | PacketTunnelProvider + native TLS | Unsigned Xcode build | Apple signing, physical device, TestFlight/distribution |
+| Windows | Wintun, protected sockets, persistent WFP rules | x64 ZIP; administrator GUI/helper | Sleep/wake, other VPNs, reboot scenarios; publisher code signing and service separation |
+| Linux | TUN, marked sockets, owned nftables table and boot unit | Ubuntu 24.04+ amd64 DEB | Resolver variants, distro support, reboot and network transitions |
+| Android | VpnService/JNI; system always-on and lockdown | Permanently signed Android 10+ APK | Physical devices, OS revocation, battery and background transitions |
+| macOS | PacketTunnel + Rust static library; system protection | Source signing kit; user signs in Xcode | Signed device runtime, entitlement/distribution checks |
+| iOS/iPadOS | PacketTunnel + Rust static library; system protection | Source signing kit; user signs in Xcode | Physical device, sleep/network transitions, signed distribution |
 
-Check the latest CI run for build outcomes; this table describes the checks, not a permanent promise that every commit passes. The shared English/Chinese UI imports profiles and reports native status. [Setup and verification](vpn-development.md) · [中文说明](vpn-development.zh-CN.md).
+Build and integration results are recorded in GitHub Actions and [validation notes](milestone-2.md). Shared features include domain/IP/port/protocol routing, loopback PAC/HTTP CONNECT, reconnect, saved profiles and signed update checks. Apple personal builds require Xcode for installation and updates.
 
-Domain rules and PAC are not applied to the VPN packet path yet. iOS per-app rules require managed devices. Some applications, containers, VMs and other active VPNs require special treatment. Bundle identifiers are provisional until signing setup. Android requires API 29+; Linux DNS integration currently requires systemd-resolved.
+Domain classification requires RouteLoom DNS or the local proxy. Opaque encrypted DNS/literal IP traffic uses IP/default rules. Geographic datasets and per-process routing are not implemented. Some containers/VMs, managed per-app VPNs and competing tunnels need platform-specific work. Linux currently requires systemd-resolved and a system Secret Service keyring.
 
-References: [Apple deployment](https://developer.apple.com/documentation/technotes/tn3134-network-extension-provider-deployment), [Android VPN](https://developer.android.com/develop/connectivity/vpn).
+中文：五个平台共用分流、重连、配置和更新检查功能；Windows/Linux 使用系统防火墙实现持久保护，Android 需手动启用系统始终 VPN/阻断，Apple 使用系统 VPN 保护且仍需自行签名。编译通过不代表真机、重启和全部网络切换场景已经验证。详见[中文功能与限制](client-features.zh-CN.md)。

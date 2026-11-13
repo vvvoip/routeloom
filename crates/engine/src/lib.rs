@@ -181,7 +181,9 @@ pub fn start_in(
             let mut attempt = 0u32;
             loop {
                 let began = tokio::time::Instant::now();
-                let _ = c.heartbeat().await;
+                if let Err(error) = c.heartbeat().await {
+                    eprintln!("RouteLoom transport unavailable: {:?}", error.kind());
+                }
                 if began.elapsed() >= Duration::from_secs(60) {
                     attempt = 0;
                 }

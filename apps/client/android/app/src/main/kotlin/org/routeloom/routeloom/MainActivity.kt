@@ -32,6 +32,15 @@ class MainActivity : FlutterActivity() {
                         }
                     } catch (_: Exception) { result.error("update","Unable to open verified update",null) }
                 }
+                "forgetProfile" -> {
+                    try {
+                        check(pending == null && RouteLoomVpnService.state !in listOf("connecting","reconnecting","connected"))
+                        val requested = org.json.JSONObject(call.arguments as String)
+                        val saved = ProfileVault.load(this)?.let { org.json.JSONObject(it) }
+                        if (saved != null && saved.getString("device") == requested.getString("device") && saved.getString("endpoint") == requested.getString("endpoint")) ProfileVault.clear(this)
+                        result.success(null)
+                    } catch (_: Exception) { result.error("profile","Unable to remove background profile",null) }
+                }
                 "status" -> result.success(RouteLoomVpnService.state)
                 "guardStatus" -> result.success(RouteLoomVpnService.lockdown)
                 "guardSettings" -> { startActivity(Intent(android.provider.Settings.ACTION_VPN_SETTINGS)); result.success(null) }

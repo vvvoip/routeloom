@@ -231,8 +231,7 @@ class _FeaturePanelState extends State<FeaturePanel> {
                     onChanged: widget.active || _busy
                         ? null
                         : (id) => _run(() async {
-                            store.selected = id;
-                            await store.save();
+                            await store.choose(id);
                           }),
                   ),
                 if (active != null) ...[
@@ -247,7 +246,10 @@ class _FeaturePanelState extends State<FeaturePanel> {
                       TextButton.icon(
                         onPressed: widget.active || _busy
                             ? null
-                            : () => _run(() => store.delete(active.id)),
+                            : () => _run(() async {
+                                await Protection.forgetProfile(active.profile);
+                                await store.delete(active.id);
+                              }),
                         icon: const Icon(Icons.delete_outline),
                         label: Text(t.deleteProfile),
                       ),
@@ -302,6 +304,15 @@ class _FeaturePanelState extends State<FeaturePanel> {
                   ),
                 ],
                 if (Platform.isAndroid)
+                  FutureBuilder<bool>(
+                    future: Protection.nativeStatus(),
+                    builder: (context, snapshot) => Text(
+                      snapshot.data == true
+                          ? t.guardStatusOn
+                          : t.guardStatusOff,
+                    ),
+                  ),
+                if (Platform.isAndroid)
                   TextButton(
                     onPressed: () => _run(Protection.settings),
                     child: Text(t.openVpnSettings),
@@ -332,8 +343,7 @@ class _FeaturePanelState extends State<FeaturePanel> {
                   onChanged: _busy
                       ? null
                       : (v) => _run(() async {
-                          store.automaticUpdates = v;
-                          await store.save();
+                          await store.setAutomaticUpdates(v);
                         }),
                 ),
                 if (_updateMessage != null) Text(_updateMessage!),

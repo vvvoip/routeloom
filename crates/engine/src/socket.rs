@@ -46,7 +46,7 @@ pub fn desktop_protector(endpoint: SocketAddr) -> Protector {
             if GetBestInterfaceEx(address.as_ptr().cast(), &mut index) != 0 {
                 return Err(invalid("no physical route"));
             }
-            let v4 = socket.local_addr()?.is_ipv4();
+            let v4 = destination.is_ipv4();
             let value = if v4 { index.to_be() } else { index };
             if setsockopt(
                 socket.as_raw_socket() as usize,
@@ -110,4 +110,17 @@ pub async fn udp(address: SocketAddr, protect: &Protector) -> Result<UdpSocket> 
     let socket = UdpSocket::from_std(s.into())?;
     socket.connect(address).await?;
     Ok(socket)
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod tests {
+    #[tokio::test]
+    async fn physical_socket_can_be_protected_before_binding() {
+        let endpoint = "1.1.1.1:9443".parse().unwrap();
+        let protect = super::desktop_protector(endpoint);
+        let socket = super::udp("1.1.1.1:53".parse().unwrap(), &protect)
+            .await
+            .unwrap();
+        assert!(socket.local_addr().unwrap().is_ipv4());
+    }
 }

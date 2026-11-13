@@ -7,7 +7,7 @@ use routeloom_tunnel::Result;
 #[path = "guard_windows.rs"]
 mod platform;
 #[cfg(target_os = "windows")]
-pub use platform::{disable, enable, self_test};
+pub use platform::{disable, enable, is_enabled, self_test};
 #[cfg(target_os = "linux")]
 pub fn enable(name: &str) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
@@ -66,4 +66,13 @@ pub fn linux_rules(name: &str) -> routeloom_tunnel::Result<String> {
     }
     Ok(
     "add table inet routeloom_guard\nflush table inet routeloom_guard\nadd chain inet routeloom_guard output { type filter hook output priority -50; policy drop; }\nadd rule inet routeloom_guard output oifname \"lo\" accept\nadd rule inet routeloom_guard output meta mark 0x524c accept\nadd rule inet routeloom_guard output oifname \"__ROUTELOOM_INTERFACE__\" accept\nadd rule inet routeloom_guard output udp sport 68 udp dport 67 accept\nadd rule inet routeloom_guard output udp sport 546 udp dport 547 accept\nadd rule inet routeloom_guard output icmpv6 type { nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept\n".replace("__ROUTELOOM_INTERFACE__",name))
+}
+
+#[cfg(target_os = "linux")]
+pub fn is_enabled() -> Result<bool> {
+    Ok(std::path::Path::new("/etc/routeloom-client/guard.nft").is_file())
+}
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+pub fn is_enabled() -> Result<bool> {
+    Ok(false)
 }

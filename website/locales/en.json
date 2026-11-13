@@ -107,14 +107,14 @@
     ],
     [
       "03",
-      "Downloadable clients",
-      "Windows, Ubuntu and Android packages; Apple signing kit.",
-      "Preview"
+      "Routing and everyday settings",
+      "Domain/PAC rules, reconnect, saved profiles, protection and signed updates.",
+      "Alpha"
     ],
     [
       "04",
       "Complete release",
-      "Signed Apple distribution, device tests, VPN rule integration, reconnect, kill switch and updates.",
+      "Signed Apple distribution, physical-device tests, network transitions and security review.",
       "Remaining"
     ]
   ],
@@ -131,7 +131,7 @@
     ],
     [
       "Explore routing rules",
-      "The rule/PAC command-line tool works independently. Domain rules are not yet applied to VPN packets."
+      "Edit ordered domain, CIDR, port and protocol rules in the client. The local PAC/HTTP proxy uses the same engine. Encrypted-DNS apps follow IP/default rules."
     ],
     [
       "Build from source",
@@ -143,7 +143,7 @@
     ],
     [
       "Know the limits",
-      "This alpha has no persistent kill switch, automatic reconnect, saved profiles or automatic updates. Device validation and signed Apple distribution remain pending."
+      "Protection depends on platform controls; Android needs system lockdown. Personally signed Apple updates require Xcode. Physical-device validation and signed Apple distribution remain pending."
     ]
   ],
   "back": "Back to overview",

@@ -38,7 +38,7 @@ class RouteLoomVpnService : VpnService() {
         return START_STICKY
     }
     private fun stopVpn() { session?.close(); session = null; state = "disconnected"; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
-    override fun onRevoke() { ProfileVault.clear(this); stopVpn(); super.onRevoke() }
+    override fun onRevoke() { try { ProfileVault.clear(this) } catch (_: Exception) {} finally { stopVpn(); super.onRevoke() } }
     override fun onDestroy() { session?.close(); session = null; if (state != "failed") state = "disconnected"; super.onDestroy() }
     private inner class Session(private val raw: String) {
         private val closed = AtomicBoolean(false)
@@ -50,6 +50,7 @@ class RouteLoomVpnService : VpnService() {
             require(raw.length <= 65536)
             handle = NativeEngine.start(raw, this@RouteLoomVpnService)
             check(handle != 0L)
+            if (closed.get()) { NativeEngine.stop(handle); return }
             ProfileVault.save(this@RouteLoomVpnService, raw)
             val p = JSONObject(raw)
             val builder = Builder().setSession("RouteLoom").setMtu(1280).setBlocking(true).setMetered(false)

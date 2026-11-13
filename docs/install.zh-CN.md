@@ -22,17 +22,17 @@ sudo apt install ./routeloom-linux-amd64.deb
 
 该包要求 glibc 2.39，不能在 Debian 12 桌面上运行；其他发行版及架构尚未提供安装包。独立服务器仍支持 Debian 12。
 
-卸载前先断开，然后运行 `sudo apt remove routeloom`。没有桌面认证代理时，可用终端运行 `sudo /usr/lib/routeloom/routeloom-vpn connect /完整路径/linux.profile.json`，Ctrl-C 断开。
+卸载前先选择“恢复直接上网”，然后运行 `sudo apt remove routeloom`。没有桌面认证代理时，可用终端运行 `sudo /usr/lib/routeloom/routeloom-vpn connect /完整路径/linux.profile.json`，Ctrl-C 断开。
 
 ## Android 10+
-下载并打开 routeloom-android-preview.apk，根据系统提示允许下载应用安装 APK。打开 RouteLoom，复制并导入 android.profile.json，点击连接并接受 VPN 系统权限。常驻通知中可断开连接。
+下载并打开 routeloom-android.apk，根据系统提示允许下载应用安装 APK。打开 RouteLoom，复制并导入 android.profile.json，点击连接并接受 VPN 系统权限。常驻通知中可断开连接。
 
-这是使用预览密钥签名的 release 构建，不是 Play 商店正式版。后续 alpha 可能更换签名，系统拒绝覆盖安装时需卸载旧预览版。单独保存私有配置，以便重新导入。
+此版本使用固定的 RouteLoom 签名密钥。0.1 预览版使用另一密钥：请先保存私有配置，卸载旧预览版一次，再安装 0.2 并重新导入。这不是 Play 商店正式版。
 
 ## macOS 和 iOS/iPadOS
 Apple 下载项是**源码签名包，不是可直接安装的 DMG/IPA**。VPN 扩展需要你的 Apple 开发者签名和描述文件。不要通过关闭 SIP/Gatekeeper 代替正确签名。
 
-在 Mac 上安装 Xcode 和 Flutter 3.50.0，登录 Apple 开发者账户，解压签名包后运行：
+在 Mac 上安装 Xcode、Flutter 3.50.0、Node.js 和 Rust/rustup，登录 Apple 开发者账户，解压签名包后运行：
 
 ```sh
 cd routeloom
@@ -44,10 +44,10 @@ bash scripts/prepare-apple.sh YOURTEAMID com.yourname.routeloom
 此流程用于个人开发测试；TestFlight/App Store 和 macOS 签名分发尚未发布。详见 [Apple 开发说明](vpn-development.zh-CN.md)。
 
 ## 使用与限制
-每台设备使用独立配置。不要公开令牌、配置或截图。配置只保留在当前应用会话中，重开后需重新导入。界面支持英语和简体中文。
+每台设备使用独立配置。不要公开令牌、配置或截图。配置和设置保存到系统保护的凭据存储；密钥环不可用时会明确提示，详见[客户端设置](client-features.zh-CN.md)。界面支持英语和简体中文。
 
-连接后检查公网出口是否为服务器 IP，测试浏览器和终端，再断开并确认网络恢复。服务器没有 IPv6 出口时，IPv6 会被捕获但不能访问互联网。
+连接后检查公网出口是否为服务器 IP，测试浏览器和终端，再断开并确认网络恢复。直接访问 IPv6 地址需要服务器支持 IPv6 出口；域名连接可使用 IPv4 出口。
 
-alpha 尚未实现持久断线保护、自动重连、保存配置、自动更新，以及 VPN 中的域名/PAC 分流。断开或故障会释放捕获；已有更具体的系统路由仍可能直连。它还不是完成的隐私保护产品。
+0.2 已加入域名/PAC 分流、自动重连、安全保存配置、持久保护控制和签名更新检查。启用保护前请阅读[功能、平台限制和恢复指南](client-features.zh-CN.md)。普通断开不会移除持久保护，卸载前先“恢复直接上网”。Android 需开启系统阻断；个人签名 Apple 更新仍需 Xcode。移动设备真机验证尚未完成。
 
 使用 Windows 的 Get-FileHash、Linux 的 sha256sum 或 macOS 的 shasum -a 256，将下载文件与同一发布版本的 SHA256SUMS.txt 对比。

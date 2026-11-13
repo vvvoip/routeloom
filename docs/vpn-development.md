@@ -22,7 +22,7 @@ The server creates rl-server (10.77.0.1/24 and fd77::1/64). For Internet egress,
 
 ## Windows and Linux
 
-The Rust helper creates Wintun/TUN, excludes the server endpoint from capture, applies profile routes and DNS, and reverses owned changes on normal exit or connection failure. Existing more-specific OS routes can remain direct. There is no persistent kill switch. Hard process termination or machine crashes require checking for stale adapter/DNS settings.
+The Rust helper creates Wintun/TUN, excludes the numeric server endpoint, and applies profile routes/DNS. The shared RL/2 engine classifies TCP/UDP and retains capture during reconnect. Disconnect removes owned routes; opt-in persistent WFP/nftables protection is removed only by explicit unlock. Existing more-specific OS routes may bypass capture unless blocked by the guard. See [client settings and recovery](client-features.md).
 
 - Windows: administrator privileges, signed Wintun DLL beside routeloom-vpn.exe. The download bundles the signed Wintun runtime from the pinned dependency and its license. Run `routeloom-vpn connect device.profile.json` in an administrator terminal.
 - Linux: root, iproute2 and systemd-resolved/resolvectl. Run `sudo routeloom-vpn connect device.profile.json`. Systems using another resolver are not supported by the current DNS integration.
@@ -31,7 +31,7 @@ The Rust helper creates Wintun/TUN, excludes the server endpoint from capture, a
 
 ## Android
 
-Android 10/API 29+ is required for the platform TLS 1.3 implementation. Build `flutter build apk --debug` in apps/client. Copy a profile to the device clipboard, choose **Import profile from clipboard**, then **Connect** and accept Android's VPN consent. The foreground notification offers Disconnect. Revocation closes the socket and TUN interface. The socket is protected before routes are installed. Always-on startup is deliberately disabled until protected credential storage and reconnect are implemented.
+Android 10/API 29+ is required. From the repository root run `bash scripts/build-native.sh android`, collect/bundle licenses as in CI, then `flutter build apk --debug` in apps/client. Use JDK 21 for the current Android lint tooling. NativeEngine JNI runs the shared Rust engine and protects its sockets with VpnService.protect. AndroidKeyStore stores the background profile. Enable system Always-on VPN and Block connections without VPN for persistent protection.
 
 ## macOS and iOS/iPadOS
 
@@ -39,7 +39,7 @@ Open the generated Runner Xcode workspace on your Mac. Both projects include a P
 
 Build and run on your Mac and physical iPhone/iPad, then import the profile and grant VPN permission. Unsigned CI builds only verify compilation and embedding. App Store/TestFlight/Developer ID distribution and entitlement approval are separate. The macOS app-extension path must use a distribution method supported by Apple; a Developer ID system-extension variant is not implemented here.
 
-Profiles are passed to the provider as start options and are not saved to VPN preferences. The OS may retain the non-secret VPN configuration. iOS per-app routing still requires managed devices.
+Profiles are passed as start options and retained in the app/extension shared Keychain for OS restart; secret profiles are not saved to VPN preferences. Build native libraries with scripts/prepare-apple.sh before opening Xcode. The OS may retain the non-secret VPN configuration. iOS per-app routing still requires managed devices.
 
 ## Verification
 
