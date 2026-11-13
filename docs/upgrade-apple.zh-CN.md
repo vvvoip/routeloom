@@ -5,12 +5,15 @@
 本指南将能正常运行的 0.3 工作副本升级到 0.4 应用源码，同时保留本地 Xcode 签名设置。Runner 和 PacketTunnel 必须继续使用原来的 Apple 团队和 Bundle ID。不要卸载应用、删除已保存配置、钥匙串条目或加密 DNS 映射缓存。
 
 1. 在 Mac 和 iPhone 上断开 RouteLoom；如果保护功能使 VPN 保持阻断，先选择**恢复直连互联网**。退出应用，停止 Xcode 的运行会话。
-2. 在 Mac 终端执行下面整段命令。若目录不同，请修改第一行。命令会备份已跟踪文件的本地修改，只更新共享源码和构建文件；保留 `ios` 和 `macos` 目录中的项目、权限及签名设置。Git 分支/标签仍是原值，但应用版本将变为 **0.4.0+4**。
+2. 在 Mac 终端执行下面整段命令，可从 RouteLoom Git 工作副本中的任意目录运行，包括 `apps/client`。命令会自动定位仓库根目录，备份已跟踪文件的本地修改，只更新共享源码和构建文件；保留 `ios` 和 `macos` 目录中的项目、权限及签名设置。Git 分支/标签仍是原值，但应用版本将变为 **0.4.0+4**。
 
 ```sh
-cd "$HOME/Code/routeloom-apple"
 bash <<'ROUTELOOM_UPDATE'
 set -euo pipefail
+routeloom_root="$(git rev-parse --show-toplevel)"
+cd "$routeloom_root"
+test -f Cargo.toml
+test -f apps/client/pubspec.yaml
 git fetch origin tag v0.4.0-alpha.1
 mkdir -p .local
 backup=".local/before-0.4-$(date +%Y%m%d-%H%M%S).patch"
@@ -37,6 +40,8 @@ ROUTELOOM_UPDATE
 ```
 
 不要跳过 Rust 编译：新的 Apple 流量面板需要新增原生函数。如果某一步报错，停止并提供错误内容，不要粘贴私有配置。
+
+如果此前提示 `pathspec 'Cargo.toml' did not match`，通常是从子目录运行了根目录命令。重新完整执行上面的修正版即可。`CRLF will be replaced by LF` 是换行格式提示，不是此次报错的原因。
 
 3. 在 **macOS** 工作区检查 **PacketTunnel → Signing & Capabilities → App Sandbox**，同时勾选 **Incoming Connections (Server)** 和 **Outgoing Connections (Client)**。必须在 PacketTunnel 扩展上启用，仅在 Runner 上启用不够。保留原来的团队和 Bundle ID。在 **Product → Scheme → Edit Scheme → Run → Info** 中选择 **Release**，取消 **Debug executable**，运行目标选 **My Mac**，按 **⌘R**。
 4. 在 **iOS** 工作区选择已连接且解锁的 iPhone。Runner 和 PacketTunnel 保留原团队和 Bundle ID，使用同样的 Release 运行设置，按 **⌘R** 覆盖安装，不要先删除原应用。

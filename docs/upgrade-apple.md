@@ -5,12 +5,15 @@
 This guide upgrades a working 0.3 checkout to the 0.4 application sources while retaining the locally signed Xcode projects. Keep the same Apple team and bundle IDs for Runner and PacketTunnel. Do not uninstall the apps or delete saved profiles, Keychain entries, or the encrypted DNS mapping cache.
 
 1. Disconnect RouteLoom on the Mac and iPhone. If protection keeps it blocked, use **Restore direct internet**. Quit the apps and stop both Xcode Run sessions.
-2. In Mac Terminal, run this block. Change the first path if your checkout is elsewhere. It backs up tracked local edits and replaces only shared application/build sources. The `ios` and `macos` Xcode projects, entitlements and signing settings stay in place. The Git checkout remains on its original branch/tag; the app version becomes **0.4.0+4**.
+2. In Mac Terminal, run the entire block from anywhere inside your RouteLoom Git checkout, including `apps/client`. It finds the repository root automatically, backs up tracked local edits and replaces only shared application/build sources. The `ios` and `macos` Xcode projects, entitlements and signing settings stay in place. The Git checkout remains on its original branch/tag; the app version becomes **0.4.0+4**.
 
 ```sh
-cd "$HOME/Code/routeloom-apple"
 bash <<'ROUTELOOM_UPDATE'
 set -euo pipefail
+routeloom_root="$(git rev-parse --show-toplevel)"
+cd "$routeloom_root"
+test -f Cargo.toml
+test -f apps/client/pubspec.yaml
 git fetch origin tag v0.4.0-alpha.1
 mkdir -p .local
 backup=".local/before-0.4-$(date +%Y%m%d-%H%M%S).patch"
@@ -37,6 +40,8 @@ ROUTELOOM_UPDATE
 ```
 
 Do not skip the Rust builds: the Apple dashboard calls new native functions. If a command fails, stop and share that error (without your private profile).
+
+If an earlier attempt reported `pathspec 'Cargo.toml' did not match`, it likely ran from a subdirectory. Run this corrected block in full. The `CRLF will be replaced by LF` warning is informational and is not the cause of that error.
 
 3. In the **macOS** workspace, check **PacketTunnel → Signing & Capabilities → App Sandbox**: both **Incoming Connections (Server)** and **Outgoing Connections (Client)** must be checked. This is required on the extension, even when already enabled on Runner. Keep your existing team and bundle IDs. Choose **Product → Scheme → Edit Scheme → Run → Info → Build Configuration: Release**, uncheck **Debug executable**, select **My Mac**, then **⌘R**.
 4. In the **iOS** workspace, select your connected, unlocked iPhone. Keep the same team and IDs on **Runner and PacketTunnel**. Choose the same Release Run configuration, then **⌘R**. Xcode installs over the existing app. Do not delete the old app first.
