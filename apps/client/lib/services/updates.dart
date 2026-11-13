@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:crypto/crypto.dart' as hashes;
 import 'package:cryptography/cryptography.dart';
 import 'package:path_provider/path_provider.dart';
@@ -153,9 +154,15 @@ class UpdateService {
 
   Future<File> download(VerifiedUpdate update) async {
     final asset = update.assets[platform] as Map<String, dynamic>;
-    final directory = Directory(
-      (await getTemporaryDirectory()).path + Platform.pathSeparator + 'updates',
-    );
+    final location = Platform.isAndroid
+        ? await const MethodChannel(
+            'org.routeloom/vpn',
+          ).invokeMethod<String>('updateDirectory')
+        : (await getApplicationSupportDirectory()).path +
+              Platform.pathSeparator +
+              'updates';
+    if (location == null) throw StateError('No update directory');
+    final directory = Directory(location);
     await directory.create(recursive: true);
     final file = File(
       directory.path + Platform.pathSeparator + _assetNames[platform]!,
@@ -194,6 +201,68 @@ class UpdateService {
   static Future<void> releasePage(VerifiedUpdate update) async {
     if (!await launchUrl(update.page, mode: LaunchMode.externalApplication))
       throw StateError('Cannot open release');
+  }
+
+  Future<void> install(
+    VerifiedUpdate update,
+    File file,
+    Future<void> Function() disconnect,
+  ) async {
+    final asset = update.assets[platform] as Map<String, dynamic>;
+    if (await file.length() != asset['size'] ||
+        (await hashes.sha256.bind(file.openRead()).first).toString() !=
+            asset['sha256'])
+      throw const FormatException('Update changed after verification');
+    if (Platform.isAndroid) {
+      await const MethodChannel(
+        'org.routeloom/vpn',
+      ).invokeMethod<void>('installUpdate', file.path);
+    } else if (Platform.isLinux) {
+      if (!await launchUrl(
+        Uri.file(file.path),
+        mode: LaunchMode.externalApplication,
+      ))
+        throw StateError('Open the verified package with your package manager');
+    } else if (Platform.isWindows) {
+      final directory = File(Platform.resolvedExecutable).parent;
+      final copied =
+          await File(
+            directory.path + Platform.pathSeparator + 'routeloom-vpn.exe',
+          ).copy(
+            file.parent.path + Platform.pathSeparator + 'routeloom-updater.exe',
+          );
+      for (final name in [
+        'vcruntime140.dll',
+        'vcruntime140_1.dll',
+        'msvcp140.dll',
+      ]) {
+        final library = File(directory.path + Platform.pathSeparator + name);
+        if (await library.exists())
+          await library.copy(file.parent.path + Platform.pathSeparator + name);
+      }
+      final child = await Process.start(copied.path, ['install-update']);
+      child.stderr.drain<void>();
+      final ready = child.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .first
+          .timeout(const Duration(seconds: 60));
+      child.stdin.write(
+        jsonEncode({
+          'archive': file.path,
+          'sha256': asset['sha256'],
+          'target': directory.path,
+          'pid': pid,
+        }),
+      );
+      await child.stdin.close();
+      if (await ready != '{"state":"update-ready"}')
+        throw StateError('Updater did not prepare');
+      await disconnect();
+      exit(0);
+    } else {
+      await releasePage(update);
+    }
   }
 
   void close() => _client.close(force: true);

@@ -6,6 +6,6 @@ version = "0.1.0-dev"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/vvvoip/routeloom"
-rust-version = "1.85"
+rust-version = "1.100"
 [workspace.dependencies]
 routeloom-core = { path = "crates/core" }

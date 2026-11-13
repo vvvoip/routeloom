@@ -16,6 +16,8 @@ rustup toolchain install 1.100.0
 rustup override set 1.100.0
 bash scripts/build-native.sh macos
 bash scripts/build-native.sh ios
+node scripts/collect-licenses.mjs .local/dependency-licenses
+node scripts/bundle-client-licenses.mjs
 cd apps/client
 flutter pub get
 flutter gen-l10n

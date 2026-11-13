@@ -51,7 +51,7 @@
   "killSwitch": "Persistent kill switch",
   "guardDescription": "Enable when connecting. Traffic stays blocked after disconnect or an app crash until you restore direct internet. Explicit direct rules remain allowed while connected.",
   "androidGuard": "Enable Always-on VPN and Block connections without VPN in Android VPN settings. This switch alone cannot enable Android lockdown.",
-  "rulesExample": "domain-suffix example.com direct\n domain ads.example.com block\n final proxy:default",
+  "rulesExample": "domain ads.example.com block\ndomain-suffix example.com direct\nfinal proxy:default",
   "pacDescription": "While the VPN engine runs, use this PAC URL in a compatible browser. The local proxy applies the same rules; there is no direct fallback. Imported JavaScript PAC files are not executed.",
   "copyPac": "Copy PAC URL",
   "openVpnSettings": "Open Android VPN settings",
@@ -71,5 +71,6 @@
   "installUpdate": "Install verified update",
   "operationFailed": "The operation failed. Check system permissions, secure storage, and the profile.",
   "reconnecting": "Reconnecting — traffic held",
-  "trafficBlocked": "Traffic blocked"
+  "trafficBlocked": "Traffic blocked",
+  "licenses": "Open-source licenses"
 }

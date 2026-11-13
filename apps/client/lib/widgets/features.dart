@@ -339,12 +339,31 @@ class _FeaturePanelState extends State<FeaturePanel> {
                 if (_updateMessage != null) Text(_updateMessage!),
                 if (Platform.isIOS || Platform.isMacOS) Text(t.appleUpdates),
                 TextButton(
+                  onPressed: () => showLicensePage(
+                    context: context,
+                    applicationName: "RouteLoom",
+                  ),
+                  child: Text(t.licenses),
+                ),
+                TextButton(
                   onPressed: _checking ? null : _check,
                   child: Text(_checking ? t.checkingUpdates : t.checkUpdates),
                 ),
                 if (_download != null) ...[
                   Text(t.updateDownloaded),
                   SelectableText(_download!.path),
+                  FilledButton(
+                    onPressed: _busy
+                        ? null
+                        : () => _run(
+                            () => _updates.install(
+                              _update!,
+                              _download!,
+                              widget.disconnect,
+                            ),
+                          ),
+                    child: Text(t.installUpdate),
+                  ),
                 ],
                 if (_update != null)
                   TextButton(

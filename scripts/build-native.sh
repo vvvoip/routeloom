@@ -4,8 +4,8 @@ cd "$(dirname "$0")/.."
 case "$1" in
  android)
     rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-    command -v cargo-ndk >/dev/null || cargo install cargo-ndk --locked
-    cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 29 -o apps/client/android/app/src/main/jniLibs build --release -p routeloom-engine --locked
+    command -v cargo-ndk >/dev/null || cargo install cargo-ndk --version 4.1.2 --locked
+    CARGO_NDK_PLATFORM=29 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o apps/client/android/app/src/main/jniLibs build --release -p routeloom-engine --locked
     ;;
  macos)
     rustup target add x86_64-apple-darwin aarch64-apple-darwin

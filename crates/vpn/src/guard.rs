@@ -1,14 +1,17 @@
 //! Owned persistent OS filters. Disconnect never removes protection; unlock is explicit.
-use routeloom_tunnel::{invalid, Result};
+#[cfg(not(any(target_os = "windows", target_os = "linux")))]
+use routeloom_tunnel::invalid;
+#[cfg(not(target_os = "windows"))]
+use routeloom_tunnel::Result;
 #[cfg(target_os = "windows")]
 #[path = "guard_windows.rs"]
 mod platform;
 #[cfg(target_os = "windows")]
-pub use platform::{disable, enable};
+pub use platform::{disable, enable, self_test};
 #[cfg(target_os = "linux")]
-pub fn enable(_name: &str) -> Result<()> {
+pub fn enable(name: &str) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
-    let rules = linux_rules();
+    let rules = linux_rules(name)?;
     let dir = std::path::Path::new("/etc/routeloom-client");
     std::fs::create_dir_all(dir)?;
     std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
@@ -54,6 +57,13 @@ pub fn disable() -> Result<()> {
     Err(invalid("use native system VPN protection"))
 }
 #[allow(dead_code)]
-pub fn linux_rules() -> &'static str {
-    "add table inet routeloom_guard\nflush table inet routeloom_guard\nadd chain inet routeloom_guard output { type filter hook output priority -50; policy drop; }\nadd rule inet routeloom_guard output oifname \"lo\" accept\nadd rule inet routeloom_guard output meta mark 0x524c accept\nadd rule inet routeloom_guard output oifname \"rl*\" accept\nadd rule inet routeloom_guard output udp sport 68 udp dport 67 accept\nadd rule inet routeloom_guard output udp sport 546 udp dport 547 accept\nadd rule inet routeloom_guard output icmpv6 type { nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept\n"
+pub fn linux_rules(name: &str) -> routeloom_tunnel::Result<String> {
+    if name.is_empty()
+        || name.len() > 15
+        || !name.bytes().all(|c| c.is_ascii_alphanumeric() || c == b'-')
+    {
+        return Err(routeloom_tunnel::invalid("invalid interface name"));
+    }
+    Ok(
+    "add table inet routeloom_guard\nflush table inet routeloom_guard\nadd chain inet routeloom_guard output { type filter hook output priority -50; policy drop; }\nadd rule inet routeloom_guard output oifname \"lo\" accept\nadd rule inet routeloom_guard output meta mark 0x524c accept\nadd rule inet routeloom_guard output oifname \"__ROUTELOOM_INTERFACE__\" accept\nadd rule inet routeloom_guard output udp sport 68 udp dport 67 accept\nadd rule inet routeloom_guard output udp sport 546 udp dport 547 accept\nadd rule inet routeloom_guard output icmpv6 type { nd-router-solicit, nd-router-advert, nd-neighbor-solicit, nd-neighbor-advert } accept\n".replace("__ROUTELOOM_INTERFACE__",name))
 }

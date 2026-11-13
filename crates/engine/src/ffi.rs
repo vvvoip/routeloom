@@ -21,6 +21,12 @@ fn runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 pub fn start_json(json: &str, protect: Protector) -> u64 {
+    let Ok(directory) = crate::cache::default_directory() else {
+        return 0;
+    };
+    start_json_in(json, protect, directory)
+}
+pub fn start_json_in(json: &str, protect: Protector, directory: std::path::PathBuf) -> u64 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if json.len() > 65536 {
             return 0;
@@ -29,7 +35,7 @@ pub fn start_json(json: &str, protect: Protector) -> u64 {
             return 0;
         };
         let _guard = runtime().enter();
-        let Ok(engine) = crate::start(profile, protect) else {
+        let Ok(engine) = crate::start_in(profile, protect, directory) else {
             return 0;
         };
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
@@ -77,7 +83,15 @@ pub extern "C" fn routeloom_status(id: u64) -> u8 {
 #[no_mangle]
 pub extern "C" fn routeloom_stop(id: u64) {
     if let Ok(mut all) = ENGINES.get_or_init(Default::default).lock() {
-        all.remove(&id);
+        if let Some(engine) = all.remove(&id) {
+            drop(all);
+            if let Ok(mut engine) = engine.lock() {
+                engine.task.abort();
+                runtime().block_on(async {
+                    let _ = (&mut engine.task).await;
+                });
+            }
+        }
     }
 }
 /// # Safety
@@ -95,7 +109,7 @@ pub unsafe extern "C" fn routeloom_start(
     let Ok(text) = std::str::from_utf8(std::slice::from_raw_parts(json, len)) else {
         return 0;
     };
-    let protector: Protector = Arc::new(move |socket| {
+    let protector: Protector = Arc::new(move |socket, _destination| {
         #[cfg(unix)]
         {
             use std::os::fd::AsRawFd;

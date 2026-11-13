@@ -2,6 +2,8 @@ mod flow_server;
 mod guard;
 mod routes;
 mod server;
+#[cfg(target_os = "windows")]
+mod updater;
 use routeloom_tunnel::{config::Profile, invalid, wire, Result};
 use std::{path::Path, sync::Arc, time::Duration};
 use tun::AbstractDevice;
@@ -17,6 +19,19 @@ fn read_config<T: serde::de::DeserializeOwned>(path: &str) -> Result<T> {
 async fn main() {
     let args: Vec<_> = std::env::args().collect();
     let result = match args.get(1).map(String::as_str) {
+        #[cfg(target_os = "windows")]
+        Some("install-update") if args.len() == 2 => updater::run(),
+        #[cfg(target_os = "windows")]
+        Some("guard-test") if args.len() == 2 => guard::self_test(),
+        #[cfg(target_os = "windows")]
+        Some("guard-enable") if args.len() == 3 => guard::enable(&args[2]),
+        Some("guard-rules") if args.len() == 3 => match guard::linux_rules(&args[2]) {
+            Ok(rules) => {
+                print!("{rules}");
+                Ok(())
+            }
+            Err(e) => Err(e),
+        },
         Some("unlock") if args.len() == 2 => guard::disable(),
         Some("connect-stdio") if args.len() == 2 => connect_stdio().await,
         Some("connect") if args.len() == 3 => match read_config::<Profile>(&args[2]) {

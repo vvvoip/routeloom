@@ -31,13 +31,13 @@ ip netns add "$CLIENT"
 ip netns add "$SERVER"
 mkdir -p "/etc/netns/$SERVER"
 printf "127.0.0.1 localhost\n192.0.2.1 direct.routeloom.test proxy.routeloom.test blocked.routeloom.test\n" > "/etc/netns/$SERVER/hosts"
-ip link add "rlv-$$" type veth peer name "rlw-$$"
-ip link set "rlv-$$" netns "$CLIENT"
-ip link set "rlw-$$" netns "$SERVER"
-ip -n "$CLIENT" addr add 192.0.2.2/24 dev "rlv-$$"
-ip -n "$SERVER" addr add 192.0.2.1/24 dev "rlw-$$"
-ip -n "$CLIENT" link set "rlv-$$" up
-ip -n "$SERVER" link set "rlw-$$" up
+ip link add "vethc-$" type veth peer name "veths-$"
+ip link set "vethc-$" netns "$CLIENT"
+ip link set "veths-$" netns "$SERVER"
+ip -n "$CLIENT" addr add 192.0.2.2/24 dev "vethc-$"
+ip -n "$SERVER" addr add 192.0.2.1/24 dev "veths-$"
+ip -n "$CLIENT" link set "vethc-$" up
+ip -n "$SERVER" link set "veths-$" up
 ip -n "$CLIENT" link set lo up
 ip -n "$SERVER" link set lo up
 ip netns exec "$SERVER" "$BIN" serve "$WORK/config/server.json" > "$WORK/server.log" 2>&1 &
@@ -69,9 +69,21 @@ for attempt in $(seq 1 70); do
 done
 test "$(grep -c '"connected"' "$WORK/client.log")" -ge 2
 ip netns exec "$CLIENT" python3 "$ROOT/scripts/vpn-traffic-test.py" test
+# Apply only inside the isolated client namespace; preserve an unrelated table.
+TUN_NAME=$(ip -n "$CLIENT" -o link show type tun | awk -F': ' 'NR==1 {print $2}')
+"$BIN" guard-rules "$TUN_NAME" > "$WORK/guard.nft"
+ip netns exec "$CLIENT" nft add table inet routeloom_test_sentinel
+ip netns exec "$CLIENT" nft -f "$WORK/guard.nft"
+ip netns exec "$CLIENT" python3 "$ROOT/scripts/vpn-traffic-test.py" domain
+if ip netns exec "$CLIENT" timeout 3 curl --noproxy '*' -fsS http://192.0.2.1:18082; then echo "Guard leaked underlay traffic"; exit 1; fi
 kill -INT "$CLIENT_PID"
 wait "$CLIENT_PID"
 test -z "$(ip -n "$CLIENT" -o link show type tun)"
+# The filter remains after the client process and TUN interface have gone.
+if ip netns exec "$CLIENT" timeout 3 curl --noproxy '*' -fsS http://192.0.2.1:18082; then echo "Guard disappeared on disconnect"; exit 1; fi
+ip netns exec "$CLIENT" nft list table inet routeloom_test_sentinel >/dev/null
+ip netns exec "$CLIENT" nft delete table inet routeloom_guard
+ip netns exec "$CLIENT" curl --noproxy '*' -fsS http://192.0.2.1:18082 >/dev/null
 ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" token
 ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" spoof
 kill -INT "$SERVER_PID"

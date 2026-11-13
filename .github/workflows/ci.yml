@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '24'
       - run: node website/build.mjs
-      - run: node --test scripts/site.test.mjs scripts/localization.test.mjs
+      - run: node --test scripts/site.test.mjs scripts/localization.test.mjs scripts/release.test.mjs
   client-tests:
     runs-on: ubuntu-24.04
     steps:

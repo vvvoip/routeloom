@@ -5,8 +5,7 @@ use tokio::{
     net::TcpListener,
     task::JoinSet,
 };
-pub async fn serve(c: Arc<Context>) -> Result<()> {
-    let listener = TcpListener::bind(("127.0.0.1", c.profile.options.pac_port)).await?;
+pub async fn serve(c: Arc<Context>, listener: TcpListener) -> Result<()> {
     let mut tasks = JoinSet::new();
     loop {
         tokio::select! {

@@ -1,0 +1,1 @@
+Development source placeholder. Release builds replace this file by running scripts/collect-licenses.mjs and scripts/bundle-client-licenses.mjs. See THIRD_PARTY_NOTICES.md and Cargo.lock in the source repository.

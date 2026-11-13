@@ -225,16 +225,80 @@ pub fn enable(name: &str) -> Result<()> {
     }
 }
 fn condition(
-    fieldKey: GUID,
+    field_key: GUID,
     kind: FWP_DATA_TYPE,
     value: FWP_CONDITION_VALUE0_0,
 ) -> FWPM_FILTER_CONDITION0 {
     FWPM_FILTER_CONDITION0 {
-        fieldKey,
+        fieldKey: field_key,
         matchType: FWP_MATCH_EQUAL,
         conditionValue: FWP_CONDITION_VALUE0 {
             r#type: kind,
             Anonymous: value,
         },
     }
+}
+
+pub fn self_test() -> Result<()> {
+    if std::env::var("GITHUB_ACTIONS").as_deref() != Ok("true") {
+        return Err(std::io::Error::other(
+            "Guard test is restricted to an ephemeral GitHub runner",
+        ));
+    }
+    let executable = std::env::current_exe()?;
+    let mut config = tun::Configuration::default();
+    config
+        .tun_name("RouteLoom-GuardTest")
+        .address((10, 77, 0, 253))
+        .netmask((255, 255, 255, 0))
+        .up();
+    config.platform_config(|p| {
+        p.wintun_file(executable.with_file_name("wintun.dll"));
+    });
+    let _device = tun::create(&config).map_err(std::io::Error::other)?;
+    fn probe() -> Result<bool> {
+        Ok(std::process::Command::new("powershell.exe").args(["-NoProfile","-NonInteractive","-Command",
+            "$ErrorActionPreference='Stop'; $probe=[Net.Sockets.TcpClient]::new(); try { if ($probe.ConnectAsync('1.1.1.1',443).Wait(4000)) { exit 0 } else { exit 1 } } catch { exit 1 } finally { $probe.Dispose() }"
+        ]).output()?.status.success())
+    }
+    if !probe()? {
+        return Err(std::io::Error::other("Guard test baseline egress failed"));
+    }
+    use std::os::windows::process::CommandExt;
+    let mut watchdog = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "Start-Sleep -Seconds 25; & $env:ROUTELOOM_GUARD_HELPER unlock",
+        ])
+        .env("ROUTELOOM_GUARD_HELPER", &executable)
+        .creation_flags(0x08000000)
+        .spawn()?;
+    struct Restore;
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            let _ = disable();
+        }
+    }
+    let restore = Restore;
+    let applied = std::process::Command::new(&executable)
+        .args(["guard-enable", "RouteLoom-GuardTest"])
+        .status()?
+        .success();
+    if !applied {
+        return Err(std::io::Error::other("Persistent filter install failed"));
+    }
+    let blocked = !probe()?;
+    disable()?;
+    drop(restore);
+    let _ = watchdog.kill();
+    let _ = watchdog.wait();
+    if !blocked || !probe()? {
+        return Err(std::io::Error::other(
+            "Guard block/recovery verification failed",
+        ));
+    }
+    println!("Persistent WFP filters survived the installing process and blocked external egress; unlock restored it.");
+    Ok(())
 }

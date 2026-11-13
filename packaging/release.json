@@ -1,6 +1,7 @@
 {
-  "tag": "v0.1.0-alpha.1",
-  "version": "0.1.0",
-  "debianVersion": "0.1.0~alpha.1",
-  "title": "RouteLoom 0.1.0 alpha 1 — first downloadable preview"
+  "tag": "v0.2.0-alpha.1",
+  "version": "0.2.0",
+  "debianVersion": "0.2.0~alpha.1",
+  "sequence": 2,
+  "title": "RouteLoom 0.2.0 alpha 1 — routing, profiles and signed updates"
 }

@@ -2,12 +2,15 @@ use routeloom_tunnel::{invalid, Result};
 use socket2::{Domain, Protocol, Socket, Type};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::net::{TcpStream, UdpSocket};
-pub type Protector = Arc<dyn Fn(&Socket) -> Result<()> + Send + Sync>;
+pub type Protector = Arc<dyn Fn(&Socket, SocketAddr) -> Result<()> + Send + Sync>;
 pub fn desktop_protector(endpoint: SocketAddr) -> Protector {
-    Arc::new(move |socket| {
+    Arc::new(move |socket, destination| {
         #[cfg(target_os = "linux")]
         {
             socket.set_mark(0x524c)?;
+            if destination.ip().is_loopback() {
+                return Ok(());
+            }
             let family = if endpoint.is_ipv4() { "-4" } else { "-6" };
             let output = std::process::Command::new("ip")
                 .args([family, "route", "get", &endpoint.ip().to_string()])
@@ -35,6 +38,9 @@ pub fn desktop_protector(endpoint: SocketAddr) -> Protector {
                     setsockopt, IPPROTO_IP, IPPROTO_IPV6, IPV6_UNICAST_IF, IP_UNICAST_IF,
                 },
             };
+            if destination.ip().is_loopback() {
+                return Ok(());
+            }
             let address = socket2::SockAddr::from(endpoint);
             let mut index = 0;
             if GetBestInterfaceEx(address.as_ptr().cast(), &mut index) != 0 {
@@ -55,7 +61,7 @@ pub fn desktop_protector(endpoint: SocketAddr) -> Protector {
         }
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
-            let _ = (socket, endpoint);
+            let _ = (socket, endpoint, destination);
         }
         Ok(())
     })
@@ -67,7 +73,7 @@ pub async fn tcp(address: SocketAddr, protect: &Protector) -> Result<TcpStream> 
         Some(Protocol::TCP),
     )?;
     s.set_nonblocking(true)?;
-    protect(&s)?;
+    protect(&s, address)?;
     if let Err(e) = s.connect(&address.into()) {
         if e.kind() != std::io::ErrorKind::WouldBlock
             && !matches!(e.raw_os_error(), Some(115 | 36 | 10035))
@@ -92,7 +98,7 @@ pub async fn udp(address: SocketAddr, protect: &Protector) -> Result<UdpSocket> 
         Some(Protocol::UDP),
     )?;
     s.set_nonblocking(true)?;
-    protect(&s)?;
+    protect(&s, address)?;
     let bind: SocketAddr = if address.is_ipv4() {
         "0.0.0.0:0"
     } else {

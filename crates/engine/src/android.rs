@@ -13,29 +13,46 @@ pub extern "system" fn Java_org_routeloom_routeloom_NativeEngine_start(
 ) -> jlong {
     let result = (|| {
         let text: String = env.get_string(&profile).ok()?.into();
+        let file = env
+            .call_method(&service, "getFilesDir", "()Ljava/io/File;", &[])
+            .ok()?
+            .l()
+            .ok()?;
+        let directory = env
+            .call_method(file, "getAbsolutePath", "()Ljava/lang/String;", &[])
+            .ok()?
+            .l()
+            .ok()?;
+        let directory: String = env.get_string(&JString::from(directory)).ok()?.into();
         let vm = env.get_java_vm().ok()?;
         let service = env.new_global_ref(service).ok()?;
-        let protect = Arc::new(move |socket: &socket2::Socket| {
-            use std::os::fd::AsRawFd;
-            let mut env = vm
-                .attach_current_thread()
-                .map_err(|_| routeloom_tunnel::invalid("JNI attach failed"))?;
-            let ok = env
-                .call_method(
-                    service.as_obj(),
-                    "protect",
-                    "(I)Z",
-                    &[JValue::Int(socket.as_raw_fd())],
-                )
-                .and_then(|v| v.z())
-                .unwrap_or(false);
-            if ok {
-                Ok(())
-            } else {
-                Err(routeloom_tunnel::invalid("VPN socket protection failed"))
-            }
-        });
-        Some(crate::ffi::start_json(&text, protect) as jlong)
+        let protect = Arc::new(
+            move |socket: &socket2::Socket, _destination: std::net::SocketAddr| {
+                use std::os::fd::AsRawFd;
+                let mut env = vm
+                    .attach_current_thread()
+                    .map_err(|_| routeloom_tunnel::invalid("JNI attach failed"))?;
+                let ok = env
+                    .call_method(
+                        service.as_obj(),
+                        "protect",
+                        "(I)Z",
+                        &[JValue::Int(socket.as_raw_fd())],
+                    )
+                    .and_then(|v| v.z())
+                    .unwrap_or(false);
+                if ok {
+                    Ok(())
+                } else {
+                    Err(routeloom_tunnel::invalid("VPN socket protection failed"))
+                }
+            },
+        );
+        Some(crate::ffi::start_json_in(
+            &text,
+            protect,
+            std::path::PathBuf::from(directory).join("routeloom-dns"),
+        ) as jlong)
     })();
     result.unwrap_or(0)
 }

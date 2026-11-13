@@ -1,6 +1,7 @@
 //! Shared TCP/UDP policy engine for desktop TUN, Android VpnService and Apple PacketTunnel.
 #[cfg(target_os = "android")]
 mod android;
+mod cache;
 mod dns;
 pub mod ffi;
 mod proxy;
@@ -125,6 +126,13 @@ impl Context {
     }
 }
 pub fn start(profile: Profile, protect: socket::Protector) -> Result<Engine> {
+    start_in(profile, protect, cache::default_directory()?)
+}
+pub fn start_in(
+    profile: Profile,
+    protect: socket::Protector,
+    directory: std::path::PathBuf,
+) -> Result<Engine> {
     profile.validate()?;
     let policy =
         Policy::parse(&profile.options.policy).map_err(|_| invalid("invalid routing policy"))?;
@@ -134,11 +142,19 @@ pub fn start(profile: Profile, protect: socket::Protector) -> Result<Engine> {
     let (input, mut packets) = mpsc::channel::<Vec<u8>>(256);
     let (return_tx, output) = mpsc::channel(256);
     let state = Arc::new(AtomicU8::new(0));
+    let names = dns::Names::open(&directory, &profile)?;
+    let proxy_listener = if profile.options.pac_port == 0 {
+        None
+    } else {
+        let listener = std::net::TcpListener::bind(("127.0.0.1", profile.options.pac_port))?;
+        listener.set_nonblocking(true)?;
+        Some(tokio::net::TcpListener::from_std(listener)?)
+    };
     let context = Arc::new(Context {
         profile,
         policy,
         protect,
-        names: Mutex::new(dns::Names::default()),
+        names: Mutex::new(names),
         state: state.clone(),
         permits: Arc::new(Semaphore::new(64)),
     });
@@ -164,7 +180,11 @@ pub fn start(profile: Profile, protect: socket::Protector) -> Result<Engine> {
         tasks.spawn(async move {
             let mut attempt = 0u32;
             loop {
+                let began = tokio::time::Instant::now();
                 let _ = c.heartbeat().await;
+                if began.elapsed() >= Duration::from_secs(60) {
+                    attempt = 0;
+                }
                 c.state.store(0, Ordering::Release);
                 if !c.profile.options.auto_reconnect {
                     c.state.store(2, Ordering::Release);
@@ -236,10 +256,12 @@ pub fn start(profile: Profile, protect: socket::Protector) -> Result<Engine> {
         tasks.spawn(async move {
             run_udp(c, udp.unwrap()).await;
         });
-        if context.profile.options.pac_port != 0 {
+        if let Some(listener) = proxy_listener {
             let c = context.clone();
             tasks.spawn(async move {
-                let _ = proxy::serve(c).await;
+                if proxy::serve(c.clone(), listener).await.is_err() {
+                    c.state.store(2, Ordering::Release);
+                }
             });
         }
         // Task cancellation drops JoinSet, stopping every socket and flow.

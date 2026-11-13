@@ -13,10 +13,30 @@ use std::{
 };
 #[derive(Default)]
 pub struct Names {
+    journal: Option<crate::cache::Journal>,
+    last: u16,
     names: HashMap<String, u16>,
     reverse: HashMap<u16, String>,
 }
 impl Names {
+    pub fn open(
+        directory: &std::path::Path,
+        profile: &routeloom_tunnel::config::Profile,
+    ) -> Result<Self> {
+        let (journal, records, last) = crate::cache::Journal::open(directory, profile)?;
+        let mut names = Self {
+            journal: Some(journal),
+            last,
+            ..Default::default()
+        };
+        for (id, host) in records {
+            if names.names.insert(host.clone(), id).is_some() {
+                return Err(invalid("duplicate cached domain"));
+            }
+            names.reverse.insert(id, host);
+        }
+        Ok(names)
+    }
     fn id(&mut self, name: &str) -> Result<u16> {
         if let Some(id) = self.names.get(name) {
             return Ok(*id);
@@ -24,7 +44,15 @@ impl Names {
         if self.names.len() >= 4096 {
             return Err(invalid("DNS table full"));
         }
-        let id = (self.names.len() + 1) as u16;
+        let id = self
+            .last
+            .checked_add(1)
+            .filter(|id| *id < 65535)
+            .ok_or_else(|| invalid("DNS address pool exhausted"))?;
+        if let Some(journal) = self.journal.as_mut() {
+            journal.append(id, name)?;
+        }
+        self.last = id;
         self.names.insert(name.into(), id);
         self.reverse.insert(id, name.into());
         Ok(id)

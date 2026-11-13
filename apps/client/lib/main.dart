@@ -7,7 +7,14 @@ import 'package:flutter/material.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'platforms/tunnel_adapter.dart';
 
-void main() => runApp(const RouteLoomApp());
+void main() {
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks([
+      'RouteLoom native dependencies',
+    ], await rootBundle.loadString('assets/RUST-LICENSES.txt'));
+  });
+  runApp(const RouteLoomApp());
+}
 
 class RouteLoomApp extends StatefulWidget {
   const RouteLoomApp({super.key, this.store});

@@ -63,6 +63,7 @@ jobs:
         shell: bash
         run: |
           if [ -n "$KEYSTORE" ]; then
+            test -n "$ROUTELOOM_ANDROID_KEY_PASSWORD" || { echo "Android signing password is missing"; exit 1; }
             mkdir -p .local/signing
             printf '%s' "$KEYSTORE" | base64 --decode > .local/signing/release.jks
             chmod 600 .local/signing/release.jks
@@ -70,6 +71,10 @@ jobs:
             echo "::add-mask::$ROUTELOOM_ANDROID_KEY_PASSWORD"
             echo "ROUTELOOM_ANDROID_KEY_PASSWORD=$ROUTELOOM_ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
           fi
+      - name: Bundle native dependency licenses
+        run: |
+          node scripts/collect-licenses.mjs .local/dependency-licenses
+          node scripts/bundle-client-licenses.mjs
       - run: flutter build ${{ matrix.command }}
         working-directory: apps/client
       - if: matrix.platform == 'macos'
@@ -79,8 +84,6 @@ jobs:
         uses: dtolnay/rust-toolchain@1.100.0
       - if: matrix.platform == 'windows' || matrix.platform == 'linux'
         run: cargo build --release -p routeloom-vpn --locked
-      - if: matrix.platform == 'windows' || matrix.platform == 'linux'
-        run: node scripts/collect-licenses.mjs .local/dependency-licenses
       - name: Bundle Microsoft runtime
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -95,6 +98,14 @@ jobs:
       - if: matrix.platform == 'windows'
         run: ./scripts/check-windows-package.ps1
         shell: pwsh
+      - name: Verify Windows update and rollback
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/test-windows-update.ps1
+      - name: Verify persistent Windows protection and recovery
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: '& .local/package-windows/routeloom-vpn.exe guard-test'
       - name: Check packaged Linux application
         if: matrix.platform == 'linux'
         shell: bash
@@ -115,6 +126,11 @@ jobs:
         run: |
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
           "$signer" verify --verbose .local/release-assets/routeloom-android.apk
+          if [ -n "$ROUTELOOM_ANDROID_KEYSTORE" ]; then
+            printf '{"signedRelease":true}\n' > .local/release-assets/android-signing.json
+          else
+            printf '{"signedRelease":false}\n' > .local/release-assets/android-signing.json
+          fi
       - if: matrix.platform == 'windows' || matrix.platform == 'linux' || matrix.platform == 'android'
         uses: actions/upload-artifact@v4
         with:
@@ -161,5 +177,6 @@ jobs:
             echo "Release $tag already exists; change packaging/release.json to publish a new version."
             exit 0
           fi
+          node -e "if(!JSON.parse(require('fs').readFileSync('.local/release-assets/android-signing.json')).signedRelease)throw Error('Release APK must use the permanent signing key')"
           test -s .local/release-assets/update.json || { echo "Signed update metadata is required for a new release."; exit 1; }
           gh release create "$tag" .local/release-assets/* --target "$GITHUB_SHA" --title "$title" --notes-file packaging/RELEASE-NOTES.md --prerelease --latest=false

@@ -1,0 +1,2 @@
+Upstream MIT license for etherparse 0.16.0, source revision from its .cargo_vcs_info.json:
+https://github.com/JulianSchmid/etherparse/blob/93c7f0bb136f42692d69365e4799d6a4e71fd8b8/LICENSE-MIT

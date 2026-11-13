@@ -51,7 +51,7 @@
   "killSwitch": "持久断网保护",
   "guardDescription": "连接时启用。断开或应用崩溃后继续阻止流量，直到手动恢复直连。已连接时，显式直连规则仍然有效。",
   "androidGuard": "请在 Android VPN 设置中启用“始终开启的 VPN”和“阻止未使用 VPN 的连接”。仅打开此开关无法启用系统断网保护。",
-  "rulesExample": "domain-suffix example.com direct\n domain ads.example.com block\n final proxy:default",
+  "rulesExample": "domain ads.example.com block\ndomain-suffix example.com direct\nfinal proxy:default",
   "pacDescription": "VPN 引擎运行时，可在支持 PAC 的浏览器中使用此地址。本地代理执行相同规则，不会自动回退到直连。不执行导入的 JavaScript PAC 文件。",
   "copyPac": "复制 PAC 地址",
   "openVpnSettings": "打开 Android VPN 设置",
@@ -71,5 +71,6 @@
   "installUpdate": "安装已验证的更新",
   "operationFailed": "操作失败，请检查系统权限、安全存储和配置。",
   "reconnecting": "正在重连，流量已暂停",
-  "trafficBlocked": "流量已阻止"
+  "trafficBlocked": "流量已阻止",
+  "licenses": "开源许可证"
 }
