@@ -7,12 +7,12 @@
     "Roadmap",
     "Docs"
   ],
-  "badge": "OPEN SOURCE · IN DEVELOPMENT",
+  "badge": "OPEN SOURCE · EXPERIMENTAL ALPHA",
   "hero": "Every connection.<br><em>Your direction.</em>",
   "intro": "A clearer way to route your traffic. RouteLoom is building one self-hosted proxy experience for your desktop, phone, and cloud server.",
-  "primary": "Explore the project",
-  "secondary": "Read the development guide",
-  "notice": "Pre-alpha. No public app downloads yet.",
+  "primary": "Download the alpha",
+  "secondary": "Installation guide",
+  "notice": "Windows, Ubuntu and Android previews. Apple signing is required. Private server profile needed.",
   "panelTitle": "Your routes, made visible.",
   "panelCaption": "Illustrative rule preview · no traffic is sent",
   "labels": [
@@ -46,105 +46,107 @@
     "BLOCK — the explicit domain rule matches."
   ],
   "howTitle": "Your device. Your rules.<br>Your server.",
-  "howIntro": "A simple connection flow is the destination. Here is what we’re building.",
+  "howIntro": "Deploy a server, import a device profile, and connect. Fine-grained VPN rules and automated enrollment are still in development.",
   "steps": [
     [
       "01",
       "Deploy",
-      "Run your own server with a guided setup and clear upgrade paths."
+      "Run your encrypted tunnel server on Debian with the tested service setup."
     ],
     [
       "02",
-      "Pair",
-      "Add a device using a short-lived invitation. Manage access per device."
+      "Import",
+      "Load a private profile with an independent identity for each device."
     ],
     [
       "03",
-      "Route",
-      "Choose direct, proxy, or block rules, then inspect why a route matched."
+      "Connect",
+      "Start VPN capture and grant your operating system permission."
     ]
   ],
-  "platformTitle": "Five platforms.<br>One coordinated launch.",
-  "platformIntro": "Windows, macOS, Linux, Android, and iOS/iPadOS are all in the first-release scope. Capabilities will respect each operating system.",
+  "platformTitle": "Downloads for today.<br>Five platforms in development.",
+  "platformIntro": "Get the experimental alpha for Windows, Ubuntu or Android. macOS and iOS use the source signing kit until signed distribution is ready.",
   "platforms": [
     [
       "Windows",
-      "Wintun + background service"
+      "Windows 10/11 · x64 · portable ZIP"
     ],
     [
       "macOS",
-      "Network Extension"
+      "Source signing kit · Xcode required"
     ],
     [
       "Linux",
-      "TUN + system service"
+      "Ubuntu 24.04+ · amd64 · DEB"
     ],
     [
       "Android",
-      "VpnService"
+      "Android 10+ · preview APK"
     ],
     [
       "iOS / iPadOS",
-      "Packet Tunnel Provider"
+      "Source signing kit · Xcode required"
     ]
   ],
-  "platformStatus": "Target · adapter pending",
-  "appleNote": "Apple platforms have additional routing, entitlement, signing, and distribution constraints. Per-app VPN on iOS requires managed devices.",
+  "platformStatus": "Download",
+  "appleNote": "Apple VPN apps require your developer signing and provisioning. The signing kit is source code, not an installable DMG/IPA. Physical-device checks remain pending.",
   "roadmapTitle": "Built in the open.",
-  "roadmapIntro": "Follow implementation as it happens. Each milestone is a release gate, not a promise of an available feature.",
+  "roadmapIntro": "Downloads are experimental. Here is what works and what remains before a complete five-platform release.",
   "milestones": [
     [
       "01",
-      "Foundation",
-      "Shared policy engine, bilingual interface, website, and build checks.",
-      "IN PROGRESS"
+      "Shared foundation",
+      "Bilingual interface, rule/PAC CLI, website and build checks.",
+      "Implemented"
     ],
     [
       "02",
-      "End-to-end connection",
-      "Authenticated transport, server setup, device enrollment, and native adapters.",
-      "PLANNED"
+      "Encrypted connection",
+      "TLS 1.3, native capture and a tested Debian cloud server.",
+      "Alpha"
     ],
     [
       "03",
-      "Unified beta",
-      "Routing, UDP, DNS, supported PAC integration, and diagnostics on all five platforms.",
-      "PLANNED"
+      "Downloadable clients",
+      "Windows, Ubuntu and Android packages; Apple signing kit.",
+      "Preview"
     ],
     [
       "04",
-      "Public release",
-      "Device testing, security review, signing, upgrades, and bilingual documentation.",
-      "PLANNED"
+      "Complete release",
+      "Signed Apple distribution, device tests, VPN rule integration, reconnect, kill switch and updates.",
+      "Remaining"
     ]
   ],
   "footerTitle": "Make the route your own.",
   "footerText": "Read the source, follow development, or help shape the first release.",
   "github": "View on GitHub",
   "footerNote": "Apache-2.0 · English & 简体中文 · Self-hosted by design",
-  "docsTitle": "Start with the foundation.",
-  "docsIntro": "This is a developer preview. It does not proxy or capture network traffic yet.",
+  "docsTitle": "Install, import, connect.",
+  "docsIntro": "Download an alpha client and connect to your own RouteLoom server. Apple installation still requires your signing setup.",
   "docsSections": [
     [
-      "What works today",
-      "The Rust policy engine evaluates ordered domain, CIDR, port, and protocol rules. The CLI validates and explains policies. The client interface is bilingual. The server scaffold exposes only local health information."
+      "Install a client",
+      "Use the installation guide below. Windows bundles its runtime and helper; Ubuntu installs a desktop app; Android provides an APK. Apple provides a source signing kit."
     ],
     [
-      "Run the policy tools",
-      "Install the Rust toolchain specified in rust-toolchain.toml, then run these commands from the repository root."
+      "Explore routing rules",
+      "The rule/PAC command-line tool works independently. Domain rules are not yet applied to VPN packets."
     ],
     [
-      "Run the client",
-      "Install the pinned Flutter SDK, generate the native runners, and run the interface on a supported development machine. Native VPN adapters are still pending."
+      "Build from source",
+      "Flutter 3.50.0 and the pinned Rust toolchain are used by the release builds. English and Simplified Chinese are included."
     ],
     [
-      "Deployment status",
-      "Cloud-server deployment will begin after authentication, TLS, enrollment, and outbound-access controls are implemented and tested. Do not expose the health scaffold as a public proxy."
+      "Deploy your server",
+      "The Debian guide includes service accounts, TLS configuration, firewall/NAT, restart checks and an external tunnel probe."
     ],
     [
-      "Contribute",
-      "Choose an item in the roadmap. Include tests for routing and security behavior, and update both languages when changing visible text. No paid account or cloud server is needed for policy-engine development."
+      "Know the limits",
+      "This alpha has no persistent kill switch, automatic reconnect, saved profiles or automatic updates. Device validation and signed Apple distribution remain pending."
     ]
   ],
-  "back": "Back to overview"
+  "back": "Back to overview",
+  "installLabel": "Installation instructions",
+  "serverLabel": "Debian deployment guide"
 }
