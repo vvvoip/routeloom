@@ -14,6 +14,19 @@ routeloom_root="$(git rev-parse --show-toplevel)"
 cd "$routeloom_root"
 test -f Cargo.toml
 test -f apps/client/pubspec.yaml
+if [ -f "${CARGO_HOME:-$HOME/.cargo}/env" ]; then
+  source "${CARGO_HOME:-$HOME/.cargo}/env"
+fi
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+if command -v brew >/dev/null 2>&1; then
+  routeloom_rustup_prefix="$(brew --prefix rustup 2>/dev/null || true)"
+  if [ -n "$routeloom_rustup_prefix" ] && [ -x "$routeloom_rustup_prefix/bin/rustup" ]; then
+    export PATH="$routeloom_rustup_prefix/bin:$PATH"
+  fi
+fi
+command -v rustup
+command -v cargo
+cargo --version
 git fetch origin tag v0.4.0-alpha.1
 mkdir -p .local
 backup=".local/before-0.4-$(date +%Y%m%d-%H%M%S).patch"
@@ -23,7 +36,6 @@ git restore --source=v0.4.0-alpha.1 --worktree -- \
   apps/client/apple apps/client/lib apps/client/assets apps/client/test \
   apps/client/pubspec.yaml apps/client/pubspec.lock \
   scripts/build-native.sh scripts/collect-licenses.mjs scripts/bundle-client-licenses.mjs
-source "$HOME/.cargo/env"
 bash scripts/build-native.sh macos
 bash scripts/build-native.sh ios
 node scripts/collect-licenses.mjs .local/dependency-licenses
@@ -42,6 +54,8 @@ ROUTELOOM_UPDATE
 不要跳过 Rust 编译：新的 Apple 流量面板需要新增原生函数。如果某一步报错，停止并提供错误内容，不要粘贴私有配置。
 
 如果此前提示 `pathspec 'Cargo.toml' did not match`，通常是从子目录运行了根目录命令。重新完整执行上面的修正版即可。`CRLF will be replaced by LF` 是换行格式提示，不是此次报错的原因。
+
+`.cargo/env` 是可选的 shell 设置文件。命令兼容默认/自定义 Cargo 目录和 Homebrew 的 `rustup` 可执行文件目录，并在更新源码前检查 `rustup` 和 `cargo` 是否可用。缺少此文件本身不代表需要重装 Rust。如果找不到工具，请停止并提供 `command -v brew rustup cargo rustc` 的输出，以便定位已有安装。参见 [Homebrew Rustup 说明](https://formulae.brew.sh/formula/rustup)。
 
 3. 在 **macOS** 工作区检查 **PacketTunnel → Signing & Capabilities → App Sandbox**，同时勾选 **Incoming Connections (Server)** 和 **Outgoing Connections (Client)**。必须在 PacketTunnel 扩展上启用，仅在 Runner 上启用不够。保留原来的团队和 Bundle ID。在 **Product → Scheme → Edit Scheme → Run → Info** 中选择 **Release**，取消 **Debug executable**，运行目标选 **My Mac**，按 **⌘R**。
 4. 在 **iOS** 工作区选择已连接且解锁的 iPhone。Runner 和 PacketTunnel 保留原团队和 Bundle ID，使用同样的 Release 运行设置，按 **⌘R** 覆盖安装，不要先删除原应用。

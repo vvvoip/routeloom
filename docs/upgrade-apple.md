@@ -14,6 +14,19 @@ routeloom_root="$(git rev-parse --show-toplevel)"
 cd "$routeloom_root"
 test -f Cargo.toml
 test -f apps/client/pubspec.yaml
+if [ -f "${CARGO_HOME:-$HOME/.cargo}/env" ]; then
+  source "${CARGO_HOME:-$HOME/.cargo}/env"
+fi
+export PATH="${CARGO_HOME:-$HOME/.cargo}/bin:$PATH"
+if command -v brew >/dev/null 2>&1; then
+  routeloom_rustup_prefix="$(brew --prefix rustup 2>/dev/null || true)"
+  if [ -n "$routeloom_rustup_prefix" ] && [ -x "$routeloom_rustup_prefix/bin/rustup" ]; then
+    export PATH="$routeloom_rustup_prefix/bin:$PATH"
+  fi
+fi
+command -v rustup
+command -v cargo
+cargo --version
 git fetch origin tag v0.4.0-alpha.1
 mkdir -p .local
 backup=".local/before-0.4-$(date +%Y%m%d-%H%M%S).patch"
@@ -23,7 +36,6 @@ git restore --source=v0.4.0-alpha.1 --worktree -- \
   apps/client/apple apps/client/lib apps/client/assets apps/client/test \
   apps/client/pubspec.yaml apps/client/pubspec.lock \
   scripts/build-native.sh scripts/collect-licenses.mjs scripts/bundle-client-licenses.mjs
-source "$HOME/.cargo/env"
 bash scripts/build-native.sh macos
 bash scripts/build-native.sh ios
 node scripts/collect-licenses.mjs .local/dependency-licenses
@@ -42,6 +54,8 @@ ROUTELOOM_UPDATE
 Do not skip the Rust builds: the Apple dashboard calls new native functions. If a command fails, stop and share that error (without your private profile).
 
 If an earlier attempt reported `pathspec 'Cargo.toml' did not match`, it likely ran from a subdirectory. Run this corrected block in full. The `CRLF will be replaced by LF` warning is informational and is not the cause of that error.
+
+The shell setup file `.cargo/env` is optional. The block supports the normal/custom Cargo directory and Homebrew's `rustup` executable directory, then checks that `rustup` and `cargo` are available before updating sources. A missing setup file alone does not mean Rust needs reinstalling. If either tool cannot be found, stop and share the output of `command -v brew rustup cargo rustc` so the existing installation can be located. See [Homebrew's Rustup instructions](https://formulae.brew.sh/formula/rustup).
 
 3. In the **macOS** workspace, check **PacketTunnel → Signing & Capabilities → App Sandbox**: both **Incoming Connections (Server)** and **Outgoing Connections (Client)** must be checked. This is required on the extension, even when already enabled on Runner. Keep your existing team and bundle IDs. Choose **Product → Scheme → Edit Scheme → Run → Info → Build Configuration: Release**, uncheck **Debug executable**, select **My Mac**, then **⌘R**.
 4. In the **iOS** workspace, select your connected, unlocked iPhone. Keep the same team and IDs on **Runner and PacketTunnel**. Choose the same Release Run configuration, then **⌘R**. Xcode installs over the existing app. Do not delete the old app first.
