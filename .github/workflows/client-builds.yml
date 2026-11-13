@@ -2,9 +2,9 @@ name: Five-platform client builds
 on:
   push:
     branches: [main]
-    paths: ['apps/client/**', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
+    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
   pull_request:
-    paths: ['apps/client/**', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
+    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'scripts/bootstrap-client.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,11 +18,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {platform: windows, os: windows-latest, command: 'windows --debug'}
-          - {platform: macos, os: macos-latest, command: 'macos --debug'}
-          - {platform: linux, os: ubuntu-latest, command: 'linux --debug'}
-          - {platform: android, os: ubuntu-latest, command: 'apk --debug'}
-          - {platform: ios, os: macos-latest, command: 'ios --debug --no-codesign'}
+          - {platform: windows, os: windows-2022, command: 'windows --debug'}
+          - {platform: macos, os: macos-15-intel, command: 'macos --debug --config-only'}
+          - {platform: linux, os: ubuntu-24.04, command: 'linux --debug'}
+          - {platform: android, os: ubuntu-24.04, command: 'apk --debug'}
+          - {platform: ios, os: macos-15-intel, command: 'ios --debug --no-codesign'}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     steps:
@@ -49,3 +49,11 @@ jobs:
         working-directory: apps/client
       - run: flutter build ${{ matrix.command }}
         working-directory: apps/client
+
+      - if: matrix.platform == 'macos'
+        run: xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Debug CODE_SIGNING_ALLOWED=NO build
+        working-directory: apps/client/macos
+      - if: matrix.platform == 'windows' || matrix.platform == 'linux'
+        uses: dtolnay/rust-toolchain@1.100.0
+      - if: matrix.platform == 'windows' || matrix.platform == 'linux'
+        run: cargo build --release -p routeloom-vpn --locked

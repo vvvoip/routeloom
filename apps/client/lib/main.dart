@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'l10n/generated/app_localizations.dart';
@@ -57,6 +59,52 @@ class RouteLoomHome extends StatefulWidget {
 
 class _RouteLoomHomeState extends State<RouteLoomHome> {
   int _selected = 0;
+  late final TunnelAdapter _adapter;
+  StreamSubscription<TunnelState>? _subscription;
+  TunnelState _state = TunnelState.disconnected;
+  TunnelProfile? _profile;
+  @override
+  void initState() {
+    super.initState();
+    _adapter = createTunnelAdapter();
+    _subscription = _adapter.states.listen((value) {
+      if (mounted) setState(() => _state = value);
+    });
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    _adapter.dispose();
+    super.dispose();
+  }
+
+  Future<void> _import() async {
+    final t = AppLocalizations.of(context);
+    try {
+      final clipboard = await Clipboard.getData(Clipboard.kTextPlain);
+      final profile = TunnelProfile.parse(clipboard?.text ?? '');
+      if (mounted) setState(() => _profile = profile);
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.invalidProfile)));
+    }
+  }
+
+  Future<void> _toggle() async {
+    try {
+      if (_state == TunnelState.connected || _state == TunnelState.connecting) {
+        await _adapter.disconnect();
+      } else {
+        await _adapter.connect(_profile!);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _state = TunnelState.failed);
+    }
+  }
+
   Widget _card(String title, String description, {Widget? extra}) {
     return Card(
       elevation: 0,
@@ -92,23 +140,46 @@ class _RouteLoomHomeState extends State<RouteLoomHome> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _card(
-            t.disconnected,
+            switch (_state) {
+              TunnelState.connected => t.connected,
+              TunnelState.connecting => t.connecting,
+              TunnelState.disconnecting => t.disconnecting,
+              TunnelState.failed => t.connectionFailed,
+              _ => t.disconnected,
+            },
             t.connectionDescription,
             extra: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  t.connectionUnavailable,
+                  _profile == null ? t.connectionUnavailable : t.profileReady,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
                 FilledButton.icon(
                   key: const Key('connect-button'),
-                  onPressed: null,
+                  onPressed:
+                      _profile == null || _state == TunnelState.disconnecting
+                      ? null
+                      : _toggle,
                   icon: const Icon(Icons.power_settings_new),
-                  label: Text(t.connect),
+                  label: Text(
+                    _state == TunnelState.connected ||
+                            _state == TunnelState.connecting
+                        ? t.disconnect
+                        : t.connect,
+                  ),
                 ),
                 const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed:
+                      _state == TunnelState.connected ||
+                          _state == TunnelState.connecting
+                      ? null
+                      : _import,
+                  icon: const Icon(Icons.content_paste),
+                  label: Text(t.importProfile),
+                ),
                 Text(
                   t.previewNotice,
                   style: Theme.of(context).textTheme.bodySmall,

@@ -1,0 +1,4 @@
+<resources>
+    <string name="vpn_active">Encrypted VPN connection active</string>
+    <string name="vpn_disconnect">Disconnect</string>
+</resources>

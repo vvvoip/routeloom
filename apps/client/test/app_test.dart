@@ -5,15 +5,7 @@ import 'package:routeloom/main.dart';
 import 'package:routeloom/platforms/tunnel_adapter.dart';
 
 void main() {
-  test('all five pending adapters fail closed', () async {
-    expect(clientPlatforms, hasLength(5));
-    for (final platform in clientPlatforms) {
-      final adapter = PendingTunnelAdapter(platform);
-      expect(await adapter.states.first, TunnelState.unavailable);
-      await expectLater(adapter.connect(), throwsUnsupportedError);
-    }
-  });
-  testWidgets('preview never offers a working connection', (tester) async {
+  testWidgets('connect requires an imported profile', (tester) async {
     await tester.pumpWidget(const RouteLoomApp());
     await tester.pumpAndSettle();
     expect(find.text('Not connected'), findsOneWidget);
@@ -22,6 +14,7 @@ void main() {
     );
     expect(button.onPressed, isNull);
     expect(find.text('Developer preview'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
   testWidgets('language can switch to Chinese and back', (tester) async {
     await tester.pumpWidget(const RouteLoomApp());
@@ -39,6 +32,7 @@ void main() {
     await tester.tap(find.text('English').last);
     await tester.pumpAndSettle();
     expect(find.text('Privacy by design'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
   });
   for (final platform in clientPlatforms) {
     testWidgets('interface renders on ' + platformName(platform), (
@@ -50,6 +44,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('RouteLoom'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
     });
   }
 }

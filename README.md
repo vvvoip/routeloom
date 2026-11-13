@@ -4,13 +4,15 @@
 
 An open-source, self-hosted proxy platform in early development. One shared routing core, five client platforms, and a server you control.
 
-**Status: foundation / pre-alpha. There is no working VPN tunnel or installable production release yet.** The first public usable release is gated on Windows, macOS, Linux, Android, and iOS/iPadOS together. English and Simplified Chinese are launch requirements.
+**Status: VPN developer milestone / pre-alpha. Native capture and TLS 1.3 transport are implemented; signed real-device validation and production packaging are still required.** The first public usable release is gated on Windows, macOS, Linux, Android, and iOS/iPadOS together. English and Simplified Chinese are launch requirements.
 
 ## Development
 
-- Rust workspace: deterministic routing policy, CLI, and a loopback-only server health scaffold.
-- Flutter client: bilingual interface and explicit platform capability reporting; connection stays unavailable until native adapters and transport are implemented.
+- Rust workspace: routing policy/PAC CLI, authenticated IPv4/IPv6 packet transport, Linux tunnel server, and Windows/Linux capture helper.
+- Flutter client: English/Chinese profile import and connection controls; Android VpnService and shared macOS/iOS Network Extension targets.
 - Static bilingual website: built with Node.js, published through GitHub Actions to Pages.
+
+Start with the [VPN development guide](docs/vpn-development.md) and [RL/1 protocol](docs/rl1.md). Domain rules are not yet wired into the VPN packet path.
 
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [platform matrix](docs/platforms.md), and [development guide](docs/development.md). CI checks source and build foundations; it does not establish VPN readiness.
 

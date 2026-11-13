@@ -1,6 +1,8 @@
 # Architecture
 
-Status: foundation / pre-alpha. See roadmap for implementation gates.
+Status: VPN developer milestone / pre-alpha. See [RL/1](rl1.md) and [native setup](vpn-development.md) for the implemented data path and validation limits.
+
+The original planned boundaries below remain the long-term architecture. RL/1 currently carries complete IPv4/IPv6 packets over TLS 1.3; it does not yet apply domain rules or provide HTTP CONNECT/CONNECT-UDP.
 
 ## Boundaries
 

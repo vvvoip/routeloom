@@ -17,3 +17,10 @@
 .DS_Store
 Thumbs.db
 apps/client/lib/l10n/generated/
+
+*.profile.json
+*.key
+
+apps/client/**/generated_plugin_registrant.*
+apps/client/**/generated_plugins.cmake
+apps/client/macos/Flutter/GeneratedPluginRegistrant.swift

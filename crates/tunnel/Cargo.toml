@@ -1,0 +1,17 @@
+[package]
+name = "routeloom-tunnel"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+[dependencies]
+tokio = { version = "1", features = ["io-util", "net", "time", "rt-multi-thread", "macros", "sync", "signal"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }
+rustls-pemfile = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+subtle = "2"
+ipnet = { version = "2", features = ["serde"] }
+[dev-dependencies]
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"] }
