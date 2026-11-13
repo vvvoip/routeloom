@@ -36,6 +36,7 @@ ip link set "vethc-$" netns "$CLIENT"
 ip link set "veths-$" netns "$SERVER"
 ip -n "$CLIENT" addr add 192.0.2.2/24 dev "vethc-$"
 ip -n "$SERVER" addr add 192.0.2.1/24 dev "veths-$"
+ip -n "$SERVER" addr add 192.0.2.53/24 dev "veths-$"
 ip -n "$CLIENT" link set "vethc-$" up
 ip -n "$SERVER" link set "veths-$" up
 ip -n "$CLIENT" link set lo up
@@ -84,6 +85,7 @@ if ip netns exec "$CLIENT" timeout 3 curl --noproxy '*' -fsS http://192.0.2.1:18
 ip netns exec "$CLIENT" nft list table inet routeloom_test_sentinel >/dev/null
 ip netns exec "$CLIENT" nft delete table inet routeloom_guard
 ip netns exec "$CLIENT" curl --noproxy '*' -fsS http://192.0.2.1:18082 >/dev/null
+ip netns exec "$CLIENT" env PATH="$WORK/bin:$PATH" python3 "$ROOT/scripts/test-monitor.py" "$BIN" "$WORK/config/device.profile.json"
 ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" token
 ip netns exec "$CLIENT" node "$ROOT/scripts/test-server-rejection.mjs" "$WORK/config/device.profile.json" spoof
 kill -INT "$SERVER_PID"

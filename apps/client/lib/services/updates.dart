@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'update_key.dart';
 
-const currentReleaseSequence = 2;
+const currentReleaseSequence = 3;
 const _assetNames = {
   'windows': 'routeloom-windows-x64.zip',
   'linux': 'routeloom-linux-amd64.deb',

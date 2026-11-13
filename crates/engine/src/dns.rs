@@ -145,3 +145,108 @@ mod tests {
         assert_eq!(names.answer(&q.to_vec().unwrap()).unwrap(), a);
     }
 }
+
+/// Resolve through the configured resolver using protected underlay sockets.
+/// Direct mode never needs the RouteLoom server for DNS or data traffic.
+pub async fn resolve_direct(
+    host: &str,
+    resolvers: &[IpAddr],
+    protect: &crate::socket::Protector,
+) -> Result<Vec<IpAddr>> {
+    use hickory_proto::op::Query;
+    use std::{net::SocketAddr, time::Duration};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let name = Name::from_ascii(host.trim_end_matches('.').to_owned() + ".")
+        .map_err(|_| invalid("invalid DNS host"))?;
+    for record_type in [RecordType::A, RecordType::AAAA] {
+        for resolver in resolvers {
+            let mut query = Message::new();
+            query
+                .set_id(rand::random())
+                .set_recursion_desired(true)
+                .add_query(Query::query(name.clone(), record_type));
+            let bytes = query.to_vec().map_err(|_| invalid("DNS query encoding"))?;
+            let address = SocketAddr::new(*resolver, 53);
+            let reply = tokio::time::timeout(Duration::from_secs(3), async {
+                let socket = crate::socket::udp(address, protect).await?;
+                socket.send(&bytes).await?;
+                let mut buffer = [0u8; 4096];
+                let n = socket.recv(&mut buffer).await?;
+                let mut reply = Message::from_vec(&buffer[..n])
+                    .map_err(|_| invalid("invalid resolver response"))?;
+                validate_reply(&query, &reply)?;
+                if reply.truncated() {
+                    let mut stream = crate::socket::tcp(address, protect).await?;
+                    stream.write_u16(bytes.len() as u16).await?;
+                    stream.write_all(&bytes).await?;
+                    let n = stream.read_u16().await? as usize;
+                    if n > 4096 {
+                        return Err(invalid("DNS response too large"));
+                    }
+                    let mut bytes = vec![0; n];
+                    stream.read_exact(&mut bytes).await?;
+                    reply =
+                        Message::from_vec(&bytes).map_err(|_| invalid("invalid DNS response"))?;
+                    validate_reply(&query, &reply)?;
+                }
+                Ok::<_, std::io::Error>(reply)
+            })
+            .await;
+            if let Ok(Ok(reply)) = reply {
+                let addresses = reply
+                    .answers()
+                    .iter()
+                    .filter_map(|r| match r.data() {
+                        RData::A(a) => Some(IpAddr::V4(a.0)),
+                        RData::AAAA(a) => Some(IpAddr::V6(a.0)),
+                        _ => None,
+                    })
+                    .take(16)
+                    .collect::<Vec<_>>();
+                if !addresses.is_empty() {
+                    return Ok(addresses);
+                }
+            }
+        }
+    }
+    Err(invalid("direct DNS resolution failed"))
+}
+fn validate_reply(query: &Message, reply: &Message) -> Result<()> {
+    if reply.id() != query.id()
+        || reply.message_type() != MessageType::Response
+        || reply.queries() != query.queries()
+        || reply.response_code() != ResponseCode::NoError
+    {
+        return Err(invalid("unexpected DNS response"));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod resolver_tests {
+    use super::*;
+    use hickory_proto::op::Query;
+    #[test]
+    fn resolver_question_identity_survives_wire_roundtrip() {
+        let mut query = Message::new();
+        query.set_id(42).add_query(Query::query(
+            Name::from_ascii("api.ipify.org.").unwrap(),
+            RecordType::A,
+        ));
+        let mut reply = query.clone();
+        reply.set_message_type(MessageType::Response);
+        let parsed = Message::from_vec(&reply.to_vec().unwrap()).unwrap();
+        validate_reply(&query, &parsed).unwrap();
+        reply.set_id(43);
+        assert!(validate_reply(&query, &reply).is_err());
+        let mut wrong = Message::new();
+        wrong
+            .set_id(42)
+            .set_message_type(MessageType::Response)
+            .add_query(Query::query(
+                Name::from_ascii("wrong.test.").unwrap(),
+                RecordType::A,
+            ));
+        assert!(validate_reply(&query, &wrong).is_err());
+    }
+}

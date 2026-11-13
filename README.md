@@ -18,7 +18,7 @@ See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [platform 
 
 ## Principles
 
-Explicit routing and DNS policies. Established encryption. Device-specific credentials. No browsing-history logging by default. Honest platform limits. No central account required for the planned self-hosted product.
+Explicit routing and DNS policies. Established encryption. Device-specific credentials. No persistent connection logs; recent connection metadata stays in memory. The encrypted DNS mapping cache persists locally. Honest platform limits. No central account required for the planned self-hosted product.
 
 ## License
 

@@ -1,7 +1,7 @@
 # Client settings
 [简体中文](client-features.zh-CN.md) · [Installation](install.md)
 
-Version 0.2 adds the same English/Chinese settings to Windows, macOS, Linux, Android and iOS/iPadOS. Apple apps still require your Xcode signature. This is an experimental alpha; build checks do not replace device testing.
+Version 0.3 adds a live traffic dashboard, routing modes and a connection test on Windows, Android and Linux, in English and Simplified Chinese. The existing settings remain available on all five platforms; the new dashboard UI is not yet available on Apple. Apple apps still require your Xcode signature. This is an experimental alpha; build checks do not replace device testing.
 
 ## Profiles and routing
 
@@ -20,11 +20,27 @@ final proxy:default
 
 Supported selectors: exact domain, domain suffix, IPv4/IPv6 CIDR, port and TCP/UDP. Supported actions: direct, block, proxy:default. Other proxy groups, geolocation datasets and application selectors are not implemented.
 
-The shared engine converts captured TCP/UDP into flows. RouteLoom DNS gives names synthetic addresses, so different domains sharing one destination IP keep distinct rules. DNS names are resolved through the encrypted server connection, including names whose eventual connection is direct. Private names known only to your local resolver are therefore not supported yet; use IP rules for those internal resources. Literal-IP or app-managed encrypted-DNS traffic follows IP/default rules. Domain matching is ASCII/punycode.
+The shared engine converts captured TCP/UDP into flows. RouteLoom DNS gives names synthetic addresses, so different domains sharing one destination IP keep distinct rules. In Auto and Proxy modes, DNS names are resolved through the encrypted server connection, including Auto rules whose eventual connection is direct. In Direct mode, names use the profile's configured DNS servers over the underlying network, without the RouteLoom server. Private names require a resolver that knows them; Auto/Proxy cannot use a local-only resolver. Literal-IP or app-managed encrypted-DNS traffic follows IP/default rules. Domain matching is ASCII/punycode.
 
 The encrypted local DNS mapping cache persists across restarts. It is not a browsing-history log, but it does contain encrypted domain mappings. It has a 4,096-name limit per profile and a 65,534-allocation lifetime limit across profiles. Unknown, corrupt or exhausted mappings fail closed; IDs are never reassigned to a different name. Do not delete this cache while applications retain synthetic DNS answers.
 
 Only A/AAAA DNS records are synthesized; other record types receive empty answers. Raw ICMP and non-TCP/UDP protocols are not forwarded by this engine. Existing more-specific OS routes can bypass capture; enable protection to block unintended direct egress.
+
+## Modes, live connections and testing
+
+On **Overview**, choose a mode before connecting. The choice is saved with the selected profile. Disconnect before changing it.
+
+| Mode | Behavior |
+| --- | --- |
+| Auto | Apply the profile's rules in order, including block rules. This means rule-based routing, not automatic server selection or direct fallback. |
+| Proxy | Send all captured TCP/UDP through the configured server, overriding direct and block rules. |
+| Direct | Send all captured TCP/UDP directly and resolve names via the configured DNS servers on the underlying network, overriding proxy and block rules. The proxy server need not be available. |
+
+The **Traffic** tab shows captured TCP/UDP connections, destination domain or IP and port, actual route, matched rule, state, duration, and upload/download counters. Search by host, address, source or rule; filter TCP/UDP, route, or active connections. Pause freezes the display. **Clear closed** removes completed rows while keeping active connections and session totals.
+
+The latest 256 connection records remain in RAM only and disappear when the engine stops. This is separate from the encrypted DNS mapping cache described above. No packet contents, full URLs or credentials are recorded. Names are available for RouteLoom DNS or local-proxy requests; other traffic may show only an IP. Process names are not available. Counters represent forwarded TCP/UDP payload bytes, excluding DNS capture and tunnel overhead. Traffic outside RouteLoom's capture is not visible.
+
+**Test connection** makes an explicit HTTPS request to api.ipify.org using the current engine and policy. It displays the selected mode, the actual route of that request, observed public IP, elapsed time and whether that IP matches the configured server address. The third-party service receives the request's exit IP. An IP match alone does not determine the route: the recorded engine decision does. This tests one request, not every application or a complete DNS/IPv6 leak audit.
 
 ## PAC and terminals
 

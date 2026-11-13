@@ -20,6 +20,7 @@ class TunnelProfile {
   final String json;
   Map<String, dynamic> get data => jsonDecode(json) as Map<String, dynamic>;
   Map<String, dynamic> get options => {
+    'mode': 'auto',
     'policy': 'final proxy:default',
     'auto_reconnect': true,
     'kill_switch': false,
@@ -141,11 +142,14 @@ class TunnelProfile {
     if (value.containsKey('options')) {
       final o = value['options'] as Map<String, dynamic>;
       if (o.keys.toSet().difference({
+            'mode',
             'policy',
             'auto_reconnect',
             'kill_switch',
             'pac_port',
           }).isNotEmpty ||
+          (o.containsKey('mode') &&
+              !['auto', 'proxy', 'direct'].contains(o['mode'])) ||
           (o.containsKey('policy') &&
               (o['policy'] is! String ||
                   (o['policy'] as String).length > 16384)) ||
@@ -167,6 +171,8 @@ abstract interface class TunnelAdapter {
   Future<void> connect(TunnelProfile profile);
   Future<void> disconnect();
   Future<void> refresh();
+  Future<Map<String, dynamic>?> snapshot();
+  Future<void> monitorCommand(String command);
   void dispose();
 }
 
@@ -206,6 +212,22 @@ class NativeTunnelAdapter implements TunnelAdapter {
   @override
   Future<void> refresh() async {
     if (!_starting) await _poll(_operation);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> snapshot() async {
+    final raw = await channel.invokeMethod<String>('snapshot');
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.length > 1048576) throw const FormatException('Snapshot too large');
+    return jsonDecode(raw) as Map<String, dynamic>;
+  }
+
+  @override
+  Future<void> monitorCommand(String command) async {
+    if (!['clear', 'diagnose'].contains(command))
+      throw ArgumentError('Unknown command');
+    if (await channel.invokeMethod<bool>('monitorCommand', command) != true)
+      throw StateError('Monitor unavailable');
   }
 
   Future<void> _poll(int operation) async {
@@ -262,6 +284,7 @@ List<String> desktopTunnelCommand(String binary, {required bool linux}) => linux
 class DesktopTunnelAdapter implements TunnelAdapter {
   final _states = StreamController<TunnelState>.broadcast();
   Process? _process;
+  Completer<Map<String, dynamic>?>? _snapshot;
   bool _disposed = false;
   int _operation = 0;
   TunnelState _state = TunnelState.disconnected;
@@ -303,8 +326,17 @@ class DesktopTunnelAdapter implements TunnelAdapter {
           .transform(const LineSplitter())
           .listen((line) {
             try {
-              final status =
-                  (jsonDecode(line) as Map<String, dynamic>)['state'];
+              final message = jsonDecode(line) as Map<String, dynamic>;
+              if (message['telemetry'] is Map<String, dynamic>) {
+                final pending = _snapshot;
+                _snapshot = null;
+                if (pending != null && !pending.isCompleted)
+                  pending.complete(
+                    message['telemetry'] as Map<String, dynamic>,
+                  );
+                return;
+              }
+              final status = message['state'];
               final state = TunnelState.values
                   .where((s) => s.name == status)
                   .firstOrNull;
@@ -319,6 +351,9 @@ class DesktopTunnelAdapter implements TunnelAdapter {
         process.exitCode.then((code) {
           if (identical(_process, process)) {
             _process = null;
+            final pending = _snapshot;
+            _snapshot = null;
+            if (pending != null && !pending.isCompleted) pending.complete(null);
             _emit(code == 0 ? TunnelState.disconnected : TunnelState.failed);
           }
         }),
@@ -347,6 +382,33 @@ class DesktopTunnelAdapter implements TunnelAdapter {
   @override
   Future<void> refresh() async {
     _emit(_state);
+  }
+
+  @override
+  Future<Map<String, dynamic>?> snapshot() async {
+    if (_process == null) return null;
+    if (_snapshot != null) return _snapshot!.future;
+    final pending = Completer<Map<String, dynamic>?>();
+    _snapshot = pending;
+    try {
+      await monitorCommand('snapshot');
+      return await pending.future.timeout(const Duration(seconds: 3));
+    } finally {
+      if (identical(_snapshot, pending)) {
+        _snapshot = null;
+        if (!pending.isCompleted) pending.complete(null);
+      }
+    }
+  }
+
+  @override
+  Future<void> monitorCommand(String command) async {
+    if (!['clear', 'diagnose', 'snapshot'].contains(command))
+      throw ArgumentError('Unknown command');
+    final process = _process;
+    if (process == null) throw StateError('Monitor unavailable');
+    process.stdin.writeln(command);
+    await process.stdin.flush();
   }
 
   @override
