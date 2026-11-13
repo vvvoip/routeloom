@@ -10,11 +10,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let queue = DispatchQueue(label: "org.routeloom.packet")
     private let outputQueue = DispatchQueue(label: "org.routeloom.packet.output")
     private var handle: UInt64 = 0
+    private var generation: UInt64 = 0
     private var stopped = false
     private var paused = false
     private var raw = Data()
     override func startTunnel(options: [String: NSObject]?, completionHandler: @escaping (Error?) -> Void) {
         queue.async {
+            self.generation &+= 1
+            let generation = self.generation
+            self.stopped = false; self.paused = false
+            if self.handle != 0 { engineStop(self.handle); self.handle = 0 }
             do {
                 let data = (options?["profile"] as? String)?.data(using: .utf8) ?? (try? BackgroundProfile.load())
                 guard let data = data else { throw TunnelError.invalid }
@@ -23,9 +28,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 self.handle = data.withUnsafeBytes { engineStart($0.bindMemory(to: UInt8.self).baseAddress!, data.count, nil, 0) }
                 guard self.handle != 0 else { throw TunnelError.invalid }
                 self.setTunnelNetworkSettings(self.settings(p)) { error in self.queue.async {
+                    guard !self.stopped && self.generation == generation else { completionHandler(TunnelError.connection); return }
                     if let error = error { engineStop(self.handle); self.handle = 0; completionHandler(error); return }
                     self.reasserting = true
-                    completionHandler(nil); self.readPackets(); self.poll()
+                    completionHandler(nil); self.readPackets(generation); self.poll(generation)
                 } }
             } catch { completionHandler(error) }
         }
@@ -53,9 +59,10 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         return settings
     }
 
-    private func readPackets() {
-        guard !stopped else { return }
+    private func readPackets(_ generation: UInt64) {
+        guard !stopped && self.generation == generation else { return }
         packetFlow.readPackets { packets, _ in self.queue.async {
+            guard !self.stopped && self.generation == generation else { return }
             if !self.paused && self.handle != 0 {
                 for packet in packets where packet.count <= 1280 {
                     packet.withUnsafeBytes { bytes in
@@ -63,13 +70,13 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                     }
                 }
             }
-            self.readPackets()
+            self.readPackets(generation)
         } }
     }
-    private func poll() {
-        guard !stopped else { return }
+    private func poll(_ generation: UInt64) {
+        guard !stopped && self.generation == generation else { return }
         guard !paused && handle != 0 else {
-            queue.asyncAfter(deadline: .now() + 0.2) { self.poll() }; return
+            queue.asyncAfter(deadline: .now() + 0.2) { self.poll(generation) }; return
         }
         let active = handle
         // Waiting for output must not hold up packetFlow input or control messages.
@@ -78,30 +85,32 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             let count = engineRead(active, &buffer, 1280)
             let packet = count > 0 ? Data(buffer.prefix(count)) : nil
             self.queue.async {
-                guard !self.stopped else { return }
+                guard !self.stopped && self.generation == generation else { return }
                 if !self.paused && self.handle == active {
                     if let packet = packet {
                         self.packetFlow.writePackets([packet], withProtocols: [NSNumber(value: packet[0] >> 4 == 4 ? AF_INET : AF_INET6)])
                     }
-                    self.reasserting = engineStatus(active) != 1
+                    self.reasserting = engineStatus(active) == 0
                 }
-                self.queue.asyncAfter(deadline: .now() + 0.001) { self.poll() }
+                self.queue.asyncAfter(deadline: .now() + (engineStatus(self.handle) == 2 ? 0.2 : 0.001)) { self.poll(generation) }
             }
         }
     }
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
         queue.async {
+            guard !self.stopped else { completionHandler?(Data("disconnected".utf8)); return }
             let message = String(data: messageData, encoding: .utf8)
             if message == "pause" { self.paused = true; engineStop(self.handle); self.handle = 0; self.reasserting = false }
-            if message == "resume" && self.paused {
+            if message == "resume" && !self.raw.isEmpty && (self.paused || engineStatus(self.handle) == 2) {
+                engineStop(self.handle)
                 self.handle = self.raw.withUnsafeBytes { engineStart($0.bindMemory(to: UInt8.self).baseAddress!,self.raw.count,nil,0) }
-                self.paused = false
+                self.paused = self.handle == 0
             }
-            let status = self.paused ? "blocked" : (engineStatus(self.handle) == 1 ? "connected" : "reconnecting")
+            let status = self.paused || engineStatus(self.handle) == 2 ? "blocked" : (engineStatus(self.handle) == 1 ? "connected" : "reconnecting")
             completionHandler?(status.data(using: .utf8))
         }
     }
     override func stopTunnel(with reason: NEProviderStopReason, completionHandler: @escaping () -> Void) {
-        queue.async { self.stopped = true; engineStop(self.handle); self.handle = 0; completionHandler() }
+        queue.async { self.generation &+= 1; self.stopped = true; engineStop(self.handle); self.handle = 0; self.raw = Data(); completionHandler() }
     }
 }

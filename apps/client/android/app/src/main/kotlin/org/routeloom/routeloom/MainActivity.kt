@@ -34,7 +34,7 @@ class MainActivity : FlutterActivity() {
                 }
                 "forgetProfile" -> {
                     try {
-                        check(pending == null && RouteLoomVpnService.state !in listOf("connecting","reconnecting","connected"))
+                        check(pending == null && RouteLoomVpnService.state !in listOf("connecting","reconnecting","connected","blocked"))
                         val requested = org.json.JSONObject(call.arguments as String)
                         val saved = ProfileVault.load(this)?.let { org.json.JSONObject(it) }
                         if (saved != null && saved.getString("device") == requested.getString("device") && saved.getString("endpoint") == requested.getString("endpoint")) ProfileVault.clear(this)

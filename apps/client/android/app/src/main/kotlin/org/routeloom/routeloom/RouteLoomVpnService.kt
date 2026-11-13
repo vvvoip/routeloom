@@ -25,7 +25,10 @@ class RouteLoomVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         lockdown = isAlwaysOn && isLockdownEnabled
         if (intent?.action == "stop") { stopVpn(); return START_NOT_STICKY }
-        if (session != null) return START_STICKY
+        if (session != null) {
+            if (intent?.hasExtra("profile") == true && session!!.unavailable()) { session!!.close(); session = null }
+            else return START_STICKY
+        }
         val raw = try { intent?.getStringExtra("profile") ?: ProfileVault.load(this) } catch (_: Exception) { null }
         if (raw == null) { state = "failed"; stopSelf(); return START_NOT_STICKY }
         val manager = getSystemService(NotificationManager::class.java)
@@ -48,13 +51,16 @@ class RouteLoomVpnService : VpnService() {
         private val workers = Executors.newFixedThreadPool(2)
         @Volatile private var handle = 0L
         @Volatile private var tun: ParcelFileDescriptor? = null
+        fun unavailable() = NativeEngine.status(handle) == 2
         fun start() { workers.execute { try { run() } catch (_: Exception) { fail() } } }
         private fun run() {
             require(raw.length <= 65536)
             handle = NativeEngine.start(raw, this@RouteLoomVpnService)
             check(handle != 0L)
-            if (closed.get()) { NativeEngine.stop(handle); return }
-            ProfileVault.save(this@RouteLoomVpnService, raw)
+            synchronized(this) {
+                if (closed.get()) { NativeEngine.stop(handle); return }
+                ProfileVault.save(this@RouteLoomVpnService, raw)
+            }
             val p = JSONObject(raw)
             val builder = Builder().setSession("RouteLoom").setMtu(1280).setBlocking(true).setMetered(false)
                 .addAddress(InetAddress.getByName(p.getString("ipv4")),24).addAddress(InetAddress.getByName(p.getString("ipv6")),64)
@@ -84,9 +90,10 @@ class RouteLoomVpnService : VpnService() {
             }
             val sink = FileOutputStream(fd.fileDescriptor)
             while (!closed.get()) {
+                if (NativeEngine.status(handle) == 2) { state = "blocked"; Thread.sleep(200); continue }
                 val packet = NativeEngine.read(handle)
                 if (packet != null && packet.isNotEmpty()) sink.write(packet)
-                state = when (NativeEngine.status(handle)) { 1 -> "connected"; 0 -> "reconnecting"; else -> "failed" }
+                state = when (NativeEngine.status(handle)) { 1 -> "connected"; 0 -> "reconnecting"; else -> "blocked" }
                 lockdown = isAlwaysOn && isLockdownEnabled
                 // Keep capture active on engine failure; system lockdown covers process death.
             }
@@ -96,10 +103,10 @@ class RouteLoomVpnService : VpnService() {
             close()
             android.os.Handler(mainLooper).post { if (session === this) { session = null; state = "failed"; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() } }
         }
-        fun close() {
+        fun close() { synchronized(this) {
             if (!closed.compareAndSet(false,true)) return
             try { tun?.close() } catch (_: Exception) {}
             NativeEngine.stop(handle); workers.shutdownNow()
-        }
+        } }
     }
 }

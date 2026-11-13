@@ -84,7 +84,7 @@ final class TunnelBridge {
             busy = true
             load { existing, error in
                 guard error == nil else { self.finish(result, error); return }
-                if let status = existing?.connection.status, status == .connected || status == .connecting || status == .disconnecting {
+                if let status = existing?.connection.status, status == .connected || status == .connecting || status == .reasserting || status == .disconnecting {
                     if let session = existing?.connection as? NETunnelProviderSession {
                         do { try session.sendProviderMessage(Data("resume".utf8)) { _ in self.finish(result,nil) } }
                         catch { self.finish(result,error) }
