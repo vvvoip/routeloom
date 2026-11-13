@@ -396,11 +396,13 @@ class _FeaturePanelState extends State<FeaturePanel> {
                         }),
                 ),
                 if (_updateMessage != null) Text(_updateMessage!),
+                Text('RouteLoom $currentReleaseVersion'),
                 if (Platform.isIOS || Platform.isMacOS) Text(t.appleUpdates),
                 TextButton(
                   onPressed: () => showLicensePage(
                     context: context,
                     applicationName: "RouteLoom",
+                    applicationVersion: currentReleaseVersion,
                   ),
                   child: Text(t.licenses),
                 ),

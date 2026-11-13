@@ -30,6 +30,8 @@ sudo apt install ./routeloom-linux-amd64.deb
 此版本使用固定的 RouteLoom 签名密钥。0.1 预览版使用另一密钥：请先保存私有配置，卸载旧预览版一次，再安装 0.2 并重新导入。这不是 Play 商店正式版。
 
 ## macOS 和 iOS/iPadOS
+如果已经在使用个人签名的 Apple 版本，请按 [0.4 升级指南](upgrade-apple.zh-CN.md)保留原有签名项目和已保存配置。“设置”中会显示当前应用版本。
+
 Apple 下载项是**源码签名包，不是可直接安装的 DMG/IPA**。VPN 扩展需要你的 Apple 开发者签名和描述文件。不要通过关闭 SIP/Gatekeeper 代替正确签名。
 
 在 Mac 上安装 Xcode、Flutter 3.50.0、Node.js 和 Rust/rustup，登录 Apple 开发者账户，解压签名包后运行：

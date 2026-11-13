@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'update_key.dart';
 
 const currentReleaseSequence = 4;
+const currentReleaseVersion = '0.4.0';
 const _assetNames = {
   'windows': 'routeloom-windows-x64.zip',
   'linux': 'routeloom-linux-amd64.deb',
