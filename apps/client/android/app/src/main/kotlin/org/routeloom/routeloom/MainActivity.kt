@@ -14,7 +14,36 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(engine)
         MethodChannel(engine.dartExecutor.binaryMessenger, "org.routeloom/vpn").setMethodCallHandler { call, result ->
             when (call.method) {
+                "updateDirectory" -> {
+                    val folder = java.io.File(filesDir,"updates"); folder.mkdirs(); result.success(folder.absolutePath)
+                }
+                "installUpdate" -> {
+                    try {
+                        val file = java.io.File(call.arguments as String).canonicalFile
+                        val directory = java.io.File(filesDir,"updates").canonicalFile
+                        require(file.parentFile == directory && file.name == "routeloom-android.apk" && file.isFile)
+                        if (!packageManager.canRequestPackageInstalls()) {
+                            startActivity(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,android.net.Uri.parse("package:"+packageName)))
+                            result.error("permission","Allow RouteLoom package installation, then try again",null)
+                        } else {
+                            val uri = androidx.core.content.FileProvider.getUriForFile(this,packageName+".updates",file)
+                            startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri,"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+                            result.success(null)
+                        }
+                    } catch (_: Exception) { result.error("update","Unable to open verified update",null) }
+                }
+                "forgetProfile" -> {
+                    try {
+                        check(pending == null && RouteLoomVpnService.state !in listOf("connecting","reconnecting","connected","blocked"))
+                        val requested = org.json.JSONObject(call.arguments as String)
+                        val saved = ProfileVault.load(this)?.let { org.json.JSONObject(it) }
+                        if (saved != null && saved.getString("device") == requested.getString("device") && saved.getString("endpoint") == requested.getString("endpoint")) ProfileVault.clear(this)
+                        result.success(null)
+                    } catch (_: Exception) { result.error("profile","Unable to remove background profile",null) }
+                }
                 "status" -> result.success(RouteLoomVpnService.state)
+                "guardStatus" -> result.success(RouteLoomVpnService.lockdown)
+                "guardSettings" -> { startActivity(Intent(android.provider.Settings.ACTION_VPN_SETTINGS)); result.success(null) }
                 "disconnect" -> {
                     pending?.error("cancelled", "VPN start cancelled", null)
                     pending = null; profile = null
@@ -22,7 +51,7 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "connect" -> {
-                    if (pending != null || RouteLoomVpnService.state in listOf("connecting", "connected")) {
+                    if (pending != null || RouteLoomVpnService.state in listOf("connecting", "reconnecting", "connected")) {
                         result.error("busy", "VPN operation in progress", null)
                     } else {
                         val value = call.arguments as? String

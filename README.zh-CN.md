@@ -12,7 +12,7 @@ RouteLoom 是一个正在开发的开源、自托管代理项目：共享路由�
 - Flutter 客户端：双语配置导入和连接控制、Android VpnService，以及 macOS/iOS Network Extension targets。
 - 静态双语官网：使用 Node.js 构建，通过 GitHub Actions 发布到 GitHub Pages。
 
-先阅读 [VPN 开发指南](docs/vpn-development.zh-CN.md)。域名规则尚未接入 VPN 数据路径。
+先阅读 [VPN 开发指南](docs/vpn-development.zh-CN.md)。共享 [RL/2 引擎](docs/rl2.md) 已接入 TCP/UDP 域名与 IP 分流，并提供 PAC、重连、安全配置和签名更新检查，详见[客户端功能与恢复指南](docs/client-features.zh-CN.md)。
 
 阅读[开发指南](docs/development.zh-CN.md)、[开发路线](docs/roadmap.md)和[平台能力表](docs/platforms.md)。构建成功不代表 VPN 功能已经完成。
 

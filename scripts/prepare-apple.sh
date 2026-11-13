@@ -12,6 +12,12 @@ if ! command -v flutter >/dev/null 2>&1; then
 fi
 flutter --version
 python3 scripts/prepare-apple.py "$1" "$2"
+rustup toolchain install 1.100.0
+rustup override set 1.100.0
+bash scripts/build-native.sh macos
+bash scripts/build-native.sh ios
+node scripts/collect-licenses.mjs .local/dependency-licenses
+node scripts/bundle-client-licenses.mjs
 cd apps/client
 flutter pub get
 flutter gen-l10n

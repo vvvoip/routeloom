@@ -66,5 +66,6 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+<key>RouteLoomKeychainGroup</key><string>$(AppIdentifierPrefix)org.routeloom.routeloom.vpn</string>
 </dict>
 </plist>

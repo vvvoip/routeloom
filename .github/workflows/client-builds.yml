@@ -2,9 +2,9 @@ name: Five-platform client builds
 on:
   push:
     branches: [main]
-    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'packaging/**', 'docs/install*', 'scripts/*client*', 'scripts/collect-licenses.mjs', 'scripts/check-windows-package.ps1', 'scripts/prepare-apple*', '.fvmrc', '.github/workflows/client-builds.yml']
+    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'packaging/**', 'docs/install*', 'scripts/*client*', 'scripts/collect-licenses.mjs', 'scripts/check-windows-package.ps1', 'scripts/prepare-apple*', 'scripts/build-native.sh', 'scripts/sign-update.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
   pull_request:
-    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'packaging/**', 'docs/install*', 'scripts/*client*', 'scripts/collect-licenses.mjs', 'scripts/check-windows-package.ps1', 'scripts/prepare-apple*', '.fvmrc', '.github/workflows/client-builds.yml']
+    paths: ['apps/client/**', 'crates/**', 'Cargo.lock', 'Cargo.toml', 'packaging/**', 'docs/install*', 'scripts/*client*', 'scripts/collect-licenses.mjs', 'scripts/check-windows-package.ps1', 'scripts/prepare-apple*', 'scripts/build-native.sh', 'scripts/sign-update.mjs', '.fvmrc', '.github/workflows/client-builds.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -12,6 +12,20 @@ concurrency:
   group: client-builds-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  signing:
+    name: Verify release signing inputs
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/check-release-signing.mjs
+        env:
+          ROUTELOOM_UPDATE_PRIVATE_KEY: ${{ secrets.ROUTELOOM_UPDATE_PRIVATE_KEY }}
+          ROUTELOOM_ANDROID_KEYSTORE_BASE64: ${{ secrets.ROUTELOOM_ANDROID_KEYSTORE_BASE64 }}
+          ROUTELOOM_ANDROID_KEY_PASSWORD: ${{ secrets.ROUTELOOM_ANDROID_KEY_PASSWORD }}
   build:
     name: ${{ matrix.platform }} release build
     strategy:
@@ -24,7 +38,7 @@ jobs:
           - {platform: android, os: ubuntu-24.04, command: 'apk --release'}
           - {platform: ios, os: macos-15-intel, command: 'ios --release --no-codesign'}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,9 +48,9 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libglu1-mesa xvfb
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libglu1-mesa libsecret-1-dev libjsoncpp-dev xvfb dbus-x11 gnome-keyring
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.50.0'
@@ -50,6 +64,31 @@ jobs:
       - if: matrix.platform == 'linux'
         run: flutter test
         working-directory: apps/client
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Build shared native routing engine
+        if: matrix.platform == 'android' || matrix.platform == 'macos' || matrix.platform == 'ios'
+        shell: bash
+        run: bash scripts/build-native.sh ${{ matrix.platform }}
+      - name: Configure Android signing
+        if: matrix.platform == 'android'
+        env:
+          KEYSTORE: ${{ secrets.ROUTELOOM_ANDROID_KEYSTORE_BASE64 }}
+          ROUTELOOM_ANDROID_KEY_PASSWORD: ${{ secrets.ROUTELOOM_ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          if [ -n "$KEYSTORE" ]; then
+            test -n "$ROUTELOOM_ANDROID_KEY_PASSWORD" || { echo "Android signing password is missing"; exit 1; }
+            mkdir -p .local/signing
+            printf '%s' "$KEYSTORE" | base64 --decode > .local/signing/release.jks
+            chmod 600 .local/signing/release.jks
+            echo "ROUTELOOM_ANDROID_KEYSTORE=$GITHUB_WORKSPACE/.local/signing/release.jks" >> "$GITHUB_ENV"
+            echo "::add-mask::$ROUTELOOM_ANDROID_KEY_PASSWORD"
+            echo "ROUTELOOM_ANDROID_KEY_PASSWORD=$ROUTELOOM_ANDROID_KEY_PASSWORD" >> "$GITHUB_ENV"
+          fi
+      - name: Bundle native dependency licenses
+        run: |
+          node scripts/collect-licenses.mjs .local/dependency-licenses
+          node scripts/bundle-client-licenses.mjs
       - run: flutter build ${{ matrix.command }}
         working-directory: apps/client
       - if: matrix.platform == 'macos'
@@ -59,8 +98,6 @@ jobs:
         uses: dtolnay/rust-toolchain@1.100.0
       - if: matrix.platform == 'windows' || matrix.platform == 'linux'
         run: cargo build --release -p routeloom-vpn --locked
-      - if: matrix.platform == 'windows' || matrix.platform == 'linux'
-        run: node scripts/collect-licenses.mjs .local/dependency-licenses
       - name: Bundle Microsoft runtime
         if: matrix.platform == 'windows'
         shell: pwsh
@@ -75,6 +112,14 @@ jobs:
       - if: matrix.platform == 'windows'
         run: ./scripts/check-windows-package.ps1
         shell: pwsh
+      - name: Verify Windows update and rollback
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./scripts/test-windows-update.ps1
+      - name: Verify persistent Windows protection and recovery
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: '& .local/package-windows/routeloom-vpn.exe guard-test'
       - name: Check packaged Linux application
         if: matrix.platform == 'linux'
         shell: bash
@@ -82,19 +127,25 @@ jobs:
           set -euo pipefail
           ldd .local/package-linux/usr/lib/routeloom/routeloom | tee .local/linux-dependencies.txt
           if grep -q 'not found' .local/linux-dependencies.txt; then exit 1; fi
-          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a bash -c '
+          LIBGL_ALWAYS_SOFTWARE=1 xvfb-run -a dbus-run-session -- bash -c '
+            gnome-keyring-daemon --start --components=secrets >/dev/null
             .local/package-linux/usr/lib/routeloom/routeloom >.local/linux-ui.log 2>&1 &
             app_pid=$!
             trap "kill $app_pid 2>/dev/null || true" EXIT
             sleep 8
-            kill -0 "$app_pid"
+            if ! kill -0 "$app_pid"; then cat .local/linux-ui.log; exit 1; fi
           '
       - name: Verify Android package signature
         if: matrix.platform == 'android'
         shell: bash
         run: |
           signer=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
-          "$signer" verify --verbose .local/release-assets/routeloom-android-preview.apk
+          "$signer" verify --verbose .local/release-assets/routeloom-android.apk
+          if [ -n "$ROUTELOOM_ANDROID_KEYSTORE" ]; then
+            printf '{"signedRelease":true}\n' > .local/release-assets/android-signing.json
+          else
+            printf '{"signedRelease":false}\n' > .local/release-assets/android-signing.json
+          fi
       - if: matrix.platform == 'windows' || matrix.platform == 'linux' || matrix.platform == 'android'
         uses: actions/upload-artifact@v4
         with:
@@ -103,7 +154,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
   publish:
-    needs: build
+    needs: [build, signing]
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     permissions:
@@ -125,6 +176,11 @@ jobs:
           cp packaging/RELEASE-NOTES.md .local/release-assets/READ-ME.md
           cd .local/release-assets
           sha256sum *.zip *.deb *.apk READ-ME.md > SHA256SUMS.txt
+      - name: Sign update manifest
+        env:
+          ROUTELOOM_UPDATE_PRIVATE_KEY: ${{ secrets.ROUTELOOM_UPDATE_PRIVATE_KEY }}
+        run: |
+          if [ -n "$ROUTELOOM_UPDATE_PRIVATE_KEY" ]; then node scripts/sign-update.mjs; fi
       - name: Publish immutable alpha release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -136,4 +192,6 @@ jobs:
             echo "Release $tag already exists; change packaging/release.json to publish a new version."
             exit 0
           fi
+          node -e "if(!JSON.parse(require('fs').readFileSync('.local/release-assets/android-signing.json')).signedRelease)throw Error('Release APK must use the permanent signing key')"
+          test -s .local/release-assets/update.json || { echo "Signed update metadata is required for a new release."; exit 1; }
           gh release create "$tag" .local/release-assets/* --target "$GITHUB_SHA" --title "$title" --notes-file packaging/RELEASE-NOTES.md --prerelease --latest=false

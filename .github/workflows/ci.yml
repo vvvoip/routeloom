@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: '24'
       - run: node website/build.mjs
-      - run: node --test scripts/site.test.mjs scripts/localization.test.mjs
+      - run: node --test scripts/site.test.mjs scripts/localization.test.mjs scripts/release.test.mjs
   client-tests:
     runs-on: ubuntu-24.04
     steps:
@@ -59,4 +59,5 @@ jobs:
         with:
           node-version: '24'
       - run: cargo build -p routeloom-vpn --locked
+      - run: sudo apt-get update && sudo apt-get install -y nftables
       - run: sudo bash scripts/test-vpn-linux.sh

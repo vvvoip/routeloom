@@ -2,8 +2,12 @@ name: Publish website
 on:
   push:
     branches: [main]
-    paths: ['website/**', 'scripts/site.test.mjs', '.github/workflows/pages.yml']
+    paths: ['website/**', 'packaging/release.json', 'scripts/site.test.mjs', 'scripts/check-site-release.mjs', '.github/workflows/pages.yml']
   workflow_dispatch:
+  workflow_run:
+    workflows: ['Five-platform client builds']
+    types: [completed]
+    branches: [main]
 permissions:
   contents: read
 concurrency:
@@ -11,7 +15,10 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04
+    outputs:
+      ready: ${{ steps.release.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,13 +26,21 @@ jobs:
           node-version: '24'
       - run: node website/build.mjs
       - run: node --test scripts/site.test.mjs
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
+      - name: Verify download links are available
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/check-site-release.mjs
+      - if: steps.release.outputs.ready == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.release.outputs.ready == 'true'
+        uses: actions/upload-pages-artifact@v4
         with:
           path: website/dist
   deploy:
     needs: build
-    runs-on: ubuntu-latest
+    if: needs.build.outputs.ready == 'true'
+    runs-on: ubuntu-24.04
     permissions:
       pages: write
       id-token: write

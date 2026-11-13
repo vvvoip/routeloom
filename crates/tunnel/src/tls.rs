@@ -24,6 +24,9 @@ pub fn private_key(pem: &[u8]) -> Result<PrivateKeyDer<'static>> {
         .ok_or_else(|| invalid("missing private key"))
 }
 pub fn client_config(ca: &[u8]) -> Result<Arc<ClientConfig>> {
+    client_config_for(ca, wire::ALPN)
+}
+pub fn client_config_for(ca: &[u8], alpn: &[u8]) -> Result<Arc<ClientConfig>> {
     let mut roots = RootCertStore::empty();
     for cert in certificates(ca)? {
         roots
@@ -36,7 +39,7 @@ pub fn client_config(ca: &[u8]) -> Result<Arc<ClientConfig>> {
             .map_err(|_| invalid("TLS configuration"))?
             .with_root_certificates(roots)
             .with_no_client_auth();
-    config.alpn_protocols = vec![wire::ALPN.to_vec()];
+    config.alpn_protocols = vec![alpn.to_vec()];
     config.enable_early_data = false;
     Ok(Arc::new(config))
 }
@@ -48,7 +51,7 @@ pub fn server_config(cert: &[u8], key: &[u8]) -> Result<Arc<ServerConfig>> {
             .with_no_client_auth()
             .with_single_cert(certificates(cert)?, private_key(key)?)
             .map_err(|_| invalid("certificate/key mismatch"))?;
-    config.alpn_protocols = vec![wire::ALPN.to_vec()];
+    config.alpn_protocols = vec![crate::flow::ALPN.to_vec(), wire::ALPN.to_vec()];
     config.max_early_data_size = 0;
     Ok(Arc::new(config))
 }

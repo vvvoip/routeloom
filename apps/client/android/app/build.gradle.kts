@@ -29,11 +29,22 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("routeloomRelease") {
+            val keystore = System.getenv("ROUTELOOM_ANDROID_KEYSTORE")
+            if (keystore != null) {
+                storeFile = file(keystore)
+                storePassword = System.getenv("ROUTELOOM_ANDROID_KEY_PASSWORD")
+                keyAlias = "routeloom"
+                keyPassword = System.getenv("ROUTELOOM_ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (System.getenv("ROUTELOOM_ANDROID_KEYSTORE") != null) "routeloomRelease" else "debug")
         }
     }
 }

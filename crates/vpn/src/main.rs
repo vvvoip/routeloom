@@ -1,6 +1,10 @@
+mod flow_server;
+mod guard;
 mod routes;
 mod server;
-use routeloom_tunnel::{config::Profile, invalid, packet, tls, wire, Result};
+#[cfg(target_os = "windows")]
+mod updater;
+use routeloom_tunnel::{config::Profile, invalid, wire, Result};
 use std::{path::Path, sync::Arc, time::Duration};
 use tun::AbstractDevice;
 
@@ -15,6 +19,20 @@ fn read_config<T: serde::de::DeserializeOwned>(path: &str) -> Result<T> {
 async fn main() {
     let args: Vec<_> = std::env::args().collect();
     let result = match args.get(1).map(String::as_str) {
+        #[cfg(target_os = "windows")]
+        Some("install-update") if args.len() == 2 => updater::run(),
+        #[cfg(target_os = "windows")]
+        Some("guard-test") if args.len() == 2 => guard::self_test(),
+        #[cfg(target_os = "windows")]
+        Some("guard-enable") if args.len() == 3 => guard::enable(&args[2]),
+        Some("guard-rules") if args.len() == 3 => match guard::linux_rules(&args[2]) {
+            Ok(rules) => {
+                print!("{rules}");
+                Ok(())
+            }
+            Err(e) => Err(e),
+        },
+        Some("unlock") if args.len() == 2 => guard::disable(),
         Some("connect-stdio") if args.len() == 2 => connect_stdio().await,
         Some("connect") if args.len() == 3 => match read_config::<Profile>(&args[2]) {
             Ok(profile) => connect(profile).await,
@@ -40,7 +58,9 @@ async fn main() {
     }
 }
 async fn connect(profile: Profile) -> Result<()> {
-    let tls = tls::connect(&profile).await?;
+    profile.validate()?;
+    let protector = routeloom_engine::socket::desktop_protector(profile.endpoint);
+    let mut engine = routeloom_engine::start(profile.clone(), protector)?;
     let mut config = tun::Configuration::default();
     config
         .address(profile.ipv4)
@@ -61,49 +81,25 @@ async fn connect(profile: Profile) -> Result<()> {
     let dev = Arc::new(tun::create_as_async(&config).map_err(std::io::Error::other)?);
     let name = dev.tun_name().map_err(std::io::Error::other)?;
     let _routes = routes::Routes::apply(&name, &profile)?;
-    println!("{{\"state\":\"connected\"}}");
-    let (mut reader, mut writer) = tokio::io::split(tls);
-    let outgoing = async {
-        let mut buf = vec![0; wire::MTU + 1];
-        let mut heartbeat = tokio::time::interval(Duration::from_secs(20));
-        heartbeat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-        loop {
-            tokio::select! {
-                n=dev.recv(&mut buf)=> {
-                    let n=n?;
-                    let (src,_)=packet::addresses(&buf[..n])?;
-                    if src!=profile.ipv4 && src!=profile.ipv6 {continue;}
-                    wire::write_frame(&mut writer,wire::PACKET,&buf[..n]).await?;
-                },
-                _=heartbeat.tick()=>wire::write_frame(&mut writer,wire::PING,&[]).await?,
-            }
-        }
-        #[allow(unreachable_code)]
-        Ok::<(), std::io::Error>(())
-    };
-    let incoming = async {
-        loop {
-            let (kind, p) =
-                tokio::time::timeout(Duration::from_secs(70), wire::read_frame(&mut reader))
-                    .await
-                    .map_err(|_| invalid("server idle timeout"))??;
-            match kind {
-                wire::PACKET => {
-                    let (_, dst) = packet::addresses(&p)?;
-                    if dst != profile.ipv4 && dst != profile.ipv6 {
-                        return Err(invalid("incorrect packet destination"));
-                    }
-                    dev.send(&p).await?;
+    if profile.options.kill_switch || guard::is_enabled()? {
+        guard::enable(&name)?;
+    }
+    println!("{{\"state\":\"connecting\"}}");
+    let mut last = 0;
+    let mut status = tokio::time::interval(Duration::from_millis(500));
+    let mut packet = vec![0; 1281];
+    loop {
+        tokio::select! {
+            n=dev.recv(&mut packet)=>{let n=n?;let _=engine.input.try_send(packet[..n].to_vec());},
+            p=engine.output.recv()=>{if let Some(p)=p{dev.send(&p).await?;}else{return Err(invalid("engine stopped"));}},
+            _=status.tick()=>{
+                let state=engine.state.load(std::sync::atomic::Ordering::Acquire);
+                if state!=last {
+                    println!("{{\"state\":\"{}\"}}",if state==1{"connected"}else if state==0{"reconnecting"}else{"blocked"});last=state;
                 }
-                wire::PONG => {}
-                _ => return Err(invalid("unexpected frame")),
-            }
+            },
+            r=tokio::signal::ctrl_c()=>return r,
         }
-    };
-    tokio::select! {
-        r=outgoing=>r,
-        r=incoming=>r,
-        r=tokio::signal::ctrl_c()=>r,
     }
 }
 
@@ -114,6 +110,9 @@ async fn connect_stdio() -> Result<()> {
     input.read_line(&mut raw).await?;
     if raw.len() > 65536 {
         return Err(invalid("profile too large"));
+    }
+    if raw.trim() == "unlock" {
+        return guard::disable();
     }
     let profile: Profile = serde_json::from_str(&raw).map_err(|_| invalid("invalid profile"))?;
     raw.clear();

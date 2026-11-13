@@ -28,5 +28,6 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+<key>RouteLoomKeychainGroup</key><string>$(AppIdentifierPrefix)org.routeloom.routeloom.vpn</string>
 </dict>
 </plist>

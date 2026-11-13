@@ -12,7 +12,7 @@ An open-source, self-hosted proxy platform in early development. One shared rout
 - Flutter client: English/Chinese profile import and connection controls; Android VpnService and shared macOS/iOS Network Extension targets.
 - Static bilingual website: built with Node.js, published through GitHub Actions to Pages.
 
-Start with the [VPN development guide](docs/vpn-development.md) and [RL/1 protocol](docs/rl1.md). Domain rules are not yet wired into the VPN packet path.
+Start with the [VPN development guide](docs/vpn-development.md) and [RL/1 protocol](docs/rl1.md). The shared [RL/2 flow engine](docs/rl2.md) applies domain/IP rules to TCP/UDP, with PAC, reconnect, protected profiles and signed update checks. Read [client settings and recovery](docs/client-features.md).
 
 See [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), [platform matrix](docs/platforms.md), and [development guide](docs/development.md). CI checks source and build foundations; it does not establish VPN readiness.
 

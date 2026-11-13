@@ -36,6 +36,11 @@ for(const pkg of metadata.packages.filter(p=>p.source)) {
   await fs.cp('packaging/licenses/asn1-rs-impl-0.2.0',dir,{recursive:true});
   files.push('LICENSE-MIT','SOURCE.txt');
  }
+ if(!files.length && pkg.name==='etherparse' && pkg.version==='0.16.0') {
+  await fs.cp('packaging/licenses/etherparse-0.16.0',dir,{recursive:true});files.push('LICENSE-MIT','SOURCE.txt');
+ }
+ if(!files.length && pkg.name==='jni-sys-macros' && pkg.version==='0.4.1') {await fs.cp('packaging/licenses/jni-sys-macros-0.4.1',dir,{recursive:true});files.push('LICENSE-MIT','SOURCE.txt');}
+ if(!files.length && pkg.name==='r-efi' && pkg.version==='5.3.0') {const authors=await fs.readFile(path.join(source,'AUTHORS'),'utf8');if(!authors.includes('Permission is hereby granted'))throw Error('r-efi license missing');await fs.writeFile(path.join(dir,'AUTHORS-LICENSE.txt'),authors);files.push('AUTHORS-LICENSE.txt');}
  if(!files.length) throw Error('No license found for '+pkg.name);
  inventory.push({name:pkg.name,version:pkg.version,license:pkg.license,repository:pkg.repository,files});
 }

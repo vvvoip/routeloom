@@ -29,15 +29,53 @@ final class TunnelBridge {
             load { manager, error in
                 if error != nil { result("failed"); return }
                 switch manager?.connection.status {
-                case .connected: result("connected")
-                case .connecting, .reasserting: result("connecting")
+                case .connected, .reasserting:
+                    if let session = manager?.connection as? NETunnelProviderSession {
+                        do { try session.sendProviderMessage(Data("status".utf8)) { data in result(data.flatMap { String(data:$0,encoding:.utf8) } ?? "reconnecting") } }
+                        catch { result("reconnecting") }
+                    } else { result("reconnecting") }
+                case .connecting: result("connecting")
                 case .disconnecting: result("disconnecting")
                 case .invalid: result("unavailable")
                 default: result("disconnected")
                 }
             }
+        } else if call.method == "forgetProfile" {
+            guard let raw = call.arguments as? String, let data = raw.data(using: .utf8), let requested = try? TunnelProfile.parse(data) else { self.finish(result,TunnelError.invalid); return }
+            guard let savedData = try? BackgroundProfile.load(), let saved = try? TunnelProfile.parse(savedData), saved.device == requested.device, saved.endpoint == requested.endpoint else { result(nil); return }
+            load { manager, error in
+                guard error == nil else { self.finish(result,error); return }
+                if let status = manager?.connection.status, status == .connected || status == .connecting || status == .reasserting || status == .disconnecting { self.finish(result,TunnelError.connection); return }
+                let clear = { (error: Error?) in
+                    if let error = error { self.finish(result,error); return }
+                    do { try BackgroundProfile.clear(); self.finish(result,nil) } catch { self.finish(result,error) }
+                }
+                if let manager = manager { manager.removeFromPreferences(completionHandler: clear) } else { clear(nil) }
+            }
+        } else if call.method == "guardStatus" {
+            load { manager, _ in result((manager?.protocolConfiguration as? NETunnelProviderProtocol)?.includeAllNetworks == true) }
+        } else if call.method == "unlock" {
+            load { manager, error in
+                guard let manager = manager, error == nil else { result(nil); return }
+                manager.isOnDemandEnabled = false
+                (manager.protocolConfiguration as? NETunnelProviderProtocol)?.includeAllNetworks = false
+                manager.saveToPreferences { error in
+                    if error == nil { manager.connection.stopVPNTunnel() }
+                    self.finish(result,error)
+                }
+            }
         } else if call.method == "disconnect" {
-            load { manager, _ in manager?.connection.stopVPNTunnel(); result(nil) }
+            load { manager, _ in
+                if (manager?.protocolConfiguration as? NETunnelProviderProtocol)?.includeAllNetworks == true,
+                   let session = manager?.connection as? NETunnelProviderSession {
+                    do { try session.sendProviderMessage(Data("pause".utf8)) { _ in result(nil) } }
+                    catch { self.finish(result,error) }
+                } else {
+                    manager?.isOnDemandEnabled = false
+                    manager?.saveToPreferences { _ in manager?.connection.stopVPNTunnel() }
+                    result(nil)
+                }
+            }
         } else if call.method == "connect" {
             guard !busy, let raw = call.arguments as? String, let data = raw.data(using: .utf8),
                   let profile = try? TunnelProfile.parse(data) else {
@@ -46,14 +84,23 @@ final class TunnelBridge {
             busy = true
             load { existing, error in
                 guard error == nil else { self.finish(result, error); return }
-                if let status = existing?.connection.status, status == .connected || status == .connecting || status == .disconnecting {
-                    self.finish(result, TunnelError.connection); return
+                if let status = existing?.connection.status, status == .connected || status == .connecting || status == .reasserting || status == .disconnecting {
+                    if let session = existing?.connection as? NETunnelProviderSession {
+                        do { try session.sendProviderMessage(Data("resume".utf8)) { _ in self.finish(result,nil) } }
+                        catch { self.finish(result,error) }
+                    } else { self.finish(result,TunnelError.connection) }; return
                 }
                 let manager = existing ?? NETunnelProviderManager()
                 let configuration = NETunnelProviderProtocol()
                 configuration.providerBundleIdentifier = self.providerID
                 configuration.serverAddress = profile.server_name
-                // Credentials are passed only to the running provider, never saved in VPN preferences.
+                do { try BackgroundProfile.save(data) } catch { self.finish(result,error); return }
+                configuration.includeAllNetworks = profile.options?.kill_switch == true
+                configuration.excludeLocalNetworks = false
+                let onDemand = NEOnDemandRuleConnect(); onDemand.interfaceTypeMatch = .any
+                manager.onDemandRules = [onDemand]
+                manager.isOnDemandEnabled = profile.options?.kill_switch == true || (profile.options?.auto_reconnect ?? true)
+                // Only the shared Keychain contains the background profile.
                 manager.protocolConfiguration = configuration
                 manager.localizedDescription = "RouteLoom"
                 manager.isEnabled = true

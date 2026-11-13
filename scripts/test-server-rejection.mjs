@@ -8,12 +8,12 @@ const port=Number(p.endpoint.slice(p.endpoint.lastIndexOf(':')+1));
 const frame=(kind,data)=>{const h=Buffer.alloc(5);h.writeUInt32BE(data.length+1);h[4]=kind;return Buffer.concat([h,data]);};
 await new Promise((resolve,reject)=>{
  let buffer=Buffer.alloc(0), welcomed=false, ended=false, secured=false;
- const socket=tls.connect({host,port,servername:p.server_name,ca:p.ca_pem,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:['routeloom/1']});
+ const socket=tls.connect({host,port,servername:p.server_name,ca:p.ca_pem,minVersion:'TLSv1.3',maxVersion:'TLSv1.3',ALPNProtocols:[mode.startsWith('flow-')?'routeloom/2':'routeloom/1']});
  socket.setTimeout(10000,()=>{socket.destroy();reject(Error('Server did not reject invalid client'));});
  socket.on('secureConnect',()=>{
    secured=true;
-   const token=mode==='token'?'0'.repeat(64):p.token;
-   socket.write(frame(1,Buffer.from(JSON.stringify({version:1,device:p.device,token}))));
+   const token=mode.endsWith('token')?'0'.repeat(64):p.token;
+   socket.write(frame(1,Buffer.from(JSON.stringify(mode.startsWith('flow-')?{version:2,device:p.device,token,kind:'tcp',host:'127.0.0.1',port:22}:{version:1,device:p.device,token}))));
  });
  socket.on('data',data=>{
    buffer=Buffer.concat([buffer,data]);

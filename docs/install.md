@@ -22,17 +22,17 @@ Launch RouteLoom from the application menu. Import your linux.profile.json, choo
 
 The package requires glibc 2.39 and is not a Debian 12 desktop build. Other Linux distributions/architectures are not covered by this package. The separate server can run on Debian 12.
 
-To remove: disconnect first, then `sudo apt remove routeloom`. If the desktop has no permission agent, use the CLI from a terminal: `sudo /usr/lib/routeloom/routeloom-vpn connect /absolute/path/linux.profile.json`; Ctrl-C disconnects.
+To remove: choose **Restore direct internet** first, then `sudo apt remove routeloom`. If the desktop has no permission agent, use the CLI from a terminal: `sudo /usr/lib/routeloom/routeloom-vpn connect /absolute/path/linux.profile.json`; Ctrl-C disconnects.
 
 ## Android 10+
-Download routeloom-android-preview.apk. Open it on your Android device and allow installation from that download app if prompted. Open RouteLoom, copy/import your android.profile.json, choose Connect and accept Android's VPN permission. The foreground notification includes Disconnect.
+Download routeloom-android.apk. Open it on your Android device and allow installation from that download app if prompted. Open RouteLoom, copy/import your android.profile.json, choose Connect and accept Android's VPN permission. The foreground notification includes Disconnect.
 
-This is a release-mode build signed with a preview key, not a Play Store release. Signing keys can change between alpha builds; uninstall the old preview if Android refuses an update. Keep your private profile separately so you can import it again.
+This build uses the permanent RouteLoom signing key. The old 0.1 preview used a different key: save your private profile, uninstall that preview once, install 0.2 and reimport. It is not a Play Store release.
 
 ## macOS and iOS/iPadOS
 The Apple download is a **source signing kit**, not an installable DMG/IPA. Apple VPN entitlements require your signing/provisioning setup. Do not disable SIP/Gatekeeper as a substitute for signing.
 
-On your Mac, install Xcode and Flutter 3.50.0, sign in to Xcode with your Apple Developer account, unzip the signing kit and run:
+On your Mac, install Xcode, Flutter 3.50.0, Node.js and Rust/rustup, sign in to Xcode with your Apple Developer account, unzip the signing kit and run:
 
 ```sh
 cd routeloom
@@ -44,11 +44,11 @@ Replace YOURTEAMID with your 10-character Apple Team ID and use a unique reverse
 This prepares personal development testing. TestFlight/App Store and signed macOS distribution are separate work and are not published yet. See [Apple VPN development](vpn-development.md#macos-and-iosipados).
 
 ## Connect and verify
-Each device needs a unique profile. Keep tokens and certificate material out of GitHub, screenshots and public websites. Profiles stay in memory for the current app session; reopen/import after restarting the app. The app supports English and Simplified Chinese.
+Each device needs a unique profile. Keep tokens and certificate material out of GitHub, screenshots and public websites. Profiles and preferences are saved in protected system storage. An unavailable keyring is reported explicitly; see [client settings](client-features.md). The app supports English and Simplified Chinese.
 
-Verify a public IP check reports your server's exit IP, try a browser and terminal, then disconnect and verify normal access returns. If the server has no IPv6 upstream, IPv6 is captured but cannot reach the Internet.
+Verify a public IP check reports your server's exit IP, try a browser and terminal, then disconnect and verify normal access returns. Literal IPv6 destinations require an IPv6 upstream. Domain flows can use the server’s IPv4 exit.
 
-This alpha does not yet provide a persistent kill switch, automatic reconnect, saved profiles, automatic updates, or domain/PAC rules applied to VPN traffic. Disconnect/failure releases capture, and existing more-specific system routes may remain direct. Avoid treating this as a finished privacy product.
+Version 0.2 includes domain/PAC routing, reconnect, saved profiles, persistent protection controls and signed update checks. Read [settings, platform limits and recovery](client-features.md) before enabling protection. Disconnect does not remove a persistent guard: choose Restore direct internet before uninstalling. Android requires system lockdown settings; personally signed Apple updates still require Xcode. Physical mobile-device validation remains pending.
 
 ## Checksums
 Compare the downloaded asset against SHA256SUMS.txt from the same release:

@@ -1,4 +1,4 @@
 <resources>
-    <string name="vpn_active">加密 VPN 连接已启用</string>
+    <string name="vpn_active">RouteLoom VPN 服务正在运行</string>
     <string name="vpn_disconnect">断开连接</string>
 </resources>

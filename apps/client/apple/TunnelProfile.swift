@@ -12,6 +12,7 @@ struct TunnelProfile: Decodable {
     let ipv6: String
     let routes: [String]
     let dns: [String]
+    let options: TunnelOptions?
     var host: String {
         let part = endpoint.prefix(upTo: endpoint.lastIndex(of: ":")!)
         return String(part).trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
@@ -50,3 +51,35 @@ struct TunnelProfile: Decodable {
     }
 }
 enum TunnelError: Error { case invalid, connection, timeout, packet }
+
+struct TunnelOptions: Decodable {
+    let policy: String?
+    let auto_reconnect: Bool?
+    let kill_switch: Bool?
+    let pac_port: UInt16?
+}
+enum BackgroundProfile {
+    static func query() throws -> [String: Any] {
+        guard let group = Bundle.main.object(forInfoDictionaryKey: "RouteLoomKeychainGroup") as? String, !group.isEmpty, !group.contains("$(") else { throw TunnelError.invalid }
+        return [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "RouteLoom.Background.v1", kSecAttrAccount as String: "active", kSecAttrAccessGroup as String: group]
+    }
+    static func save(_ data: Data) throws {
+        let base = try query()
+        let values: [String: Any] = [kSecValueData as String: data, kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        let result = SecItemUpdate(base as CFDictionary, values as CFDictionary)
+        if result == errSecItemNotFound {
+            var item = base; values.forEach { item[$0.key] = $0.value }
+            guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw TunnelError.invalid }
+        } else if result != errSecSuccess { throw TunnelError.invalid }
+    }
+    static func clear() throws {
+        let result = SecItemDelete(try query() as CFDictionary)
+        guard result == errSecSuccess || result == errSecItemNotFound else { throw TunnelError.invalid }
+    }
+    static func load() throws -> Data {
+        var item = try query(); item[kSecReturnData as String] = true; item[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(item as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { throw TunnelError.invalid }
+        return data
+    }
+}

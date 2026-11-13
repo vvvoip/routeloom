@@ -1,5 +1,7 @@
 # RL/1 development packet tunnel
 
+Historical protocol documentation for 0.1 clients. Version 0.2 uses [RL/2](rl2.md). The server preserves this legacy path; limitations below describe older clients.
+
 RL/1 is a versioned IP framing protocol carried over **TLS 1.3 only**, ALPN `routeloom/1`. It introduces no encryption algorithm. Rust uses rustls/ring; Android uses the platform TLS stack; Apple uses Network.framework and Security.framework. The configured CA and TLS hostname must validate before credentials are sent. No insecure certificate option, TLS 1.2 fallback, or 0-RTT is offered.
 
 Each frame is a 4-byte unsigned big-endian length (including the kind byte), one kind byte, then the payload. Length is 1–4096; packet payloads are at most 1280 bytes. Readers reject truncation, invalid lengths, and unexpected state transitions. IP packets have no Ethernet or TUN PI header.

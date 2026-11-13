@@ -72,7 +72,8 @@ pub async fn serve(config: Config, base: &Path) -> Result<()> {
     let sessions: Sessions = Arc::new(Mutex::new(HashMap::new()));
     let listener = TcpListener::bind(config.listen).await?;
     let config = Arc::new(config);
-    let permits = Arc::new(Semaphore::new(256));
+    let permits = Arc::new(Semaphore::new(512));
+    let limits: crate::flow_server::Limits = Default::default();
     let return_packets = async {
         let mut buf = vec![0; wire::MTU + 1];
         loop {
@@ -94,13 +95,14 @@ pub async fn serve(config: Config, base: &Path) -> Result<()> {
                 drop(tcp);
                 continue;
             };
+            let limits = limits.clone();
             let acceptor = acceptor.clone();
             let config = config.clone();
             let sessions = sessions.clone();
             let dev = dev.clone();
             tokio::spawn(async move {
                 let _permit = permit;
-                let _ = session(tcp, acceptor, config, sessions, dev).await;
+                let _ = session(tcp, acceptor, config, sessions, dev, limits).await;
                 // Deliberately do not log credentials, packet contents or destinations.
             });
         }
@@ -116,10 +118,16 @@ async fn session(
     config: Arc<Config>,
     sessions: Sessions,
     dev: Arc<tun::AsyncDevice>,
+    limits: crate::flow_server::Limits,
 ) -> Result<()> {
     tcp.set_nodelay(true)?;
+    let mut tls = tokio::time::timeout(Duration::from_secs(10), acceptor.accept(tcp))
+        .await
+        .map_err(|_| invalid("TLS timeout"))??;
+    if tls.get_ref().1.alpn_protocol() == Some(routeloom_tunnel::flow::ALPN) {
+        return crate::flow_server::serve(tls, config, limits).await;
+    }
     let (mut tls, device) = tokio::time::timeout(Duration::from_secs(10), async {
-        let mut tls = acceptor.accept(tcp).await?;
         if tls.get_ref().1.alpn_protocol() != Some(wire::ALPN) {
             return Err(invalid("ALPN mismatch"));
         }

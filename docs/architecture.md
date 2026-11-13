@@ -1,36 +1,20 @@
 # Architecture
 
-Status: VPN developer milestone / pre-alpha. [RL/1 specification](rl1.md) and [setup guide](vpn-development.md).
+Status: experimental 0.2 alpha. [Installation](install.md) · [Client settings and limits](client-features.md) · [RL/2](rl2.md) · [Legacy RL/1](rl1.md).
 
-## Implemented boundaries
+- Rust policy core validates ordered domain/CIDR/port/protocol rules. It is independent of network access.
+- The shared Rust engine classifies TCP/UDP flows using synthetic DNS mappings. Direct sockets bypass capture; proxy sockets use authenticated TLS 1.3 RL/2; blocked flows never dial their destination.
+- Windows/Linux use a Rust Wintun/TUN helper. Profiles travel over stdin, not process arguments. Owned routes/DNS are removed on ordinary disconnect. Persistent WFP/nftables protection has a separate explicit unlock operation.
+- Android uses JNI, VpnService.protect, foreground lifecycle and AndroidKeyStore credentials. OS always-on/lockdown must be enabled by the user.
+- macOS/iOS use the same Rust library in a Network Extension. Keychain credentials support provider restart, includeAllNetworks supports protection, and on-demand configuration supports recovery. Apple signing and real-device tests remain external gates.
+- The server accepts both RL/2 flows and RL/1 packets. It validates device credentials, bounds connections, rejects unauthorized private/metadata egress and preserves legacy lease checks. RL/1 uses Linux TUN/NAT; RL/2 uses connected server sockets.
+- Flutter provides English/Chinese profiles, rule editing, connection status, protection controls and verified update handling. Profile storage uses the operating system's protected vault.
+- The website is static bilingual GitHub Pages content, separate from the Debian tunnel host.
 
-- **Policy core (Rust):** deterministic rule validation, first-match decisions, reason lines, and lossless PAC export. It remains independent of network access.
-- **Packet transport (Rust):** TLS 1.3, CA/hostname verification, device authentication, bounded frames, IPv4/IPv6 validation and lease checking.
-- **Desktop capture:** Rust Wintun/TUN helper on Windows/Linux. Explicit routes exclude the numeric tunnel endpoint. Owned routes/DNS are reversed on normal exit. The Flutter bridge passes the profile over child stdin, not command-line arguments.
-- **Android:** VpnService with consent and foreground lifecycle. Its TLS socket is protected before capture. Native packet forwarding operates independently of Flutter.
-- **Apple:** macOS/iOS share a Network Extension packet provider and native TLS implementation. Both Xcode projects embed the extension. Signing, entitlement and physical-device validation are external gates.
-- **Server:** routeloom-vpn serve creates a Linux TUN, authenticates each device, checks source leases and egress policy, and dispatches return traffic using bounded queues. Kernel forwarding/NAT is deployment configuration. The older routeloom-server health command remains a separate loopback-only scaffold.
-- **Interface:** Flutter with English and Simplified Chinese, session-only profile import, Connect/Disconnect and native status reporting.
-- **Website:** static bilingual GitHub Pages site, independent of the tunnel host.
+Application → OS capture → shared TCP/UDP flow engine → ordered rule → direct / block / RL/2 TLS server → destination.
 
-## Current data path
+PAC/HTTP CONNECT enters the same engine over loopback. Arbitrary PAC JavaScript, SOCKS5, geographic datasets, application/process rules, automatic credential enrollment and QUIC transport are not implemented. A country rule alone would not create a geographic exit node.
 
-Application → OS IP capture → RL/1 packets over authenticated TLS 1.3 → Linux server TUN → host egress firewall/routing → destination.
+Capture persists during automatic reconnect. A kill switch must be explicitly enabled and follows platform-specific rules. There is no universal zero-leak claim across boot, every OS service, sleep/resume, other VPNs, containers or virtual machines. See the recovery instructions before enabling protection.
 
-Both IPv4 and IPv6 carry TCP, UDP and DNS packets. IP capture routes are configurable. The existing domain/PAC rules are **not yet integrated into packet processing**; the UI and docs do not imply otherwise.
-
-## Planned integrations
-
-HTTP/SOCKS ingress, domain-aware flow classification, HTTP/2 CONNECT and HTTP/3 CONNECT-UDP, credential enrollment/revocation without restart, automatic reconnect, persistent kill switch, and least-privilege service installers. RL/1 is an initial developer transport with TCP-over-TCP performance limitations, not a replacement for standard cryptography.
-
-IP geography remains approximate and dataset licenses need review. A country rule does not create an exit node in that country. LAN/private-cloud egress requires explicit server allow-listing; NAT traversal connectors are future work.
-
-## Lifecycle and rollback
-
-Validate profile → verify TLS → authenticate device/lease → install capture and DNS → report connected. Failures close capture and unwind owned desktop changes. Disconnect is fail-open: a persistent kill switch is not implemented. Hard kills, suspend/resume, network transitions and coexistence with other VPNs need real-device tests. No claim of universal DNS-leak prevention is made.
-
-## Apple constraints
-
-Use supported packet tunnels to remote servers. iOS per-app VPN requires managed devices. macOS App Store/development app-extension and Developer ID system-extension distribution differ; the latter packaging is not implemented.
-
-References: [Apple TN3120](https://developer.apple.com/documentation/technotes/tn3120-expected-use-cases-for-network-extension-packet-tunnel-providers), [Apple TN3134](https://developer.apple.com/documentation/technotes/tn3134-network-extension-provider-deployment), [Android VPN](https://developer.android.com/develop/connectivity/vpn), [rustls](https://docs.rs/rustls/), [CONNECT-UDP](https://www.rfc-editor.org/rfc/rfc9298.html).
+Updates verify an Ed25519-signed manifest, monotonic sequence and asset hashes. Windows replaces a staged portable package with rollback; Linux/Android delegate installation to the OS. Personally signed Apple builds check for updates but still require Xcode installation.
