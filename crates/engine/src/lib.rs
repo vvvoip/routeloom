@@ -2,14 +2,16 @@
 #[cfg(target_os = "android")]
 mod android;
 mod cache;
+mod diagnostic;
 mod dns;
 pub mod ffi;
+pub mod monitor;
 mod proxy;
 pub mod socket;
 use futures::{SinkExt, StreamExt};
 use routeloom_core::{Action, Flow, Network, Policy};
 use routeloom_tunnel::{
-    config::Profile,
+    config::{Profile, RoutingMode},
     flow::{self, Kind},
     invalid, wire, Result,
 };
@@ -35,8 +37,18 @@ pub struct Engine {
     pub output: mpsc::Receiver<Vec<u8>>,
     /// 0 connecting/reconnecting, 1 connected, 2 stopped/error.
     pub state: Arc<AtomicU8>,
+    pub monitor: Arc<monitor::Monitor>,
+    pub commands: mpsc::Sender<()>,
     task: tokio::task::JoinHandle<()>,
     stop: Option<tokio::sync::oneshot::Sender<()>>,
+}
+impl Engine {
+    pub async fn shutdown(&mut self) {
+        if let Some(stop) = self.stop.take() {
+            let _ = stop.send(());
+        }
+        let _ = (&mut self.task).await;
+    }
 }
 impl Drop for Engine {
     fn drop(&mut self) {
@@ -50,6 +62,7 @@ pub(crate) struct Context {
     names: Mutex<dns::Names>,
     state: Arc<AtomicU8>,
     permits: Arc<Semaphore>,
+    monitor: Arc<monitor::Monitor>,
 }
 impl Context {
     async fn open(
@@ -69,16 +82,26 @@ impl Context {
         host: &str,
         port: u16,
         network: Network,
+        observed: &monitor::FlowGuard,
     ) -> Result<(SocketAddr, Action)> {
         if self.state.load(Ordering::Acquire) != 1 {
+            observed.failed("engine_unavailable");
             return Err(invalid("tunnel unavailable"));
         }
-        let ips = if let Ok(ip) = host.parse::<IpAddr>() {
-            vec![ip]
-        } else {
-            self.open(Kind::Resolve, host, 0).await?.1
-        };
-        // Prefer IPv4 when both are present; the full policy is evaluated against the chosen IP.
+        let resolved = async {
+            if let Ok(ip) = host.parse::<IpAddr>() {
+                Ok(vec![ip])
+            } else if self.profile.options.mode == RoutingMode::Direct {
+                dns::resolve_direct(host, &self.profile.dns, &self.protect).await
+            } else {
+                Ok(self.open(Kind::Resolve, host, 0).await?.1)
+            }
+        }
+        .await;
+        let ips = resolved.map_err(|e| {
+            observed.failed("resolution_failed");
+            e
+        })?;
         let ip = ips
             .iter()
             .find(|ip| ip.is_ipv4())
@@ -87,22 +110,76 @@ impl Context {
             .ok_or_else(|| invalid("DNS returned no addresses"))?;
         let flow =
             Flow::new(host, Some(ip), port, network).map_err(|_| invalid("invalid destination"))?;
-        let action = self.policy.evaluate(&flow).action;
+        let (action, line) = match self.profile.options.mode {
+            RoutingMode::Auto => {
+                let d = self.policy.evaluate(&flow);
+                (d.action, Some(d.line))
+            }
+            RoutingMode::Proxy => (Action::Proxy("default".into()), None),
+            RoutingMode::Direct => (Action::Direct, None),
+        };
+        let route = match &action {
+            Action::Direct => "direct",
+            Action::Block => "block",
+            Action::Proxy(_) => "proxy",
+        };
+        let address = SocketAddr::new(ip, port);
+        observed.route(
+            address,
+            route,
+            line,
+            line.and_then(|n| self.profile.options.policy.lines().nth(n.saturating_sub(1))),
+        );
         if action == Action::Block {
+            observed.failed("blocked");
             return Err(invalid("blocked by policy"));
         }
-        Ok((SocketAddr::new(ip, port), action))
+        Ok((address, action))
     }
-    pub(crate) async fn tcp(&self, host: &str, port: u16) -> Result<BoxStream> {
-        let (address, action) = self.destination(host, port, Network::Tcp).await?;
-        match action {
-            Action::Direct => Ok(Box::new(socket::tcp(address, &self.protect).await?)),
-            Action::Proxy(group) if group == "default" => Ok(Box::new(
-                self.open(Kind::Tcp, &address.ip().to_string(), port)
-                    .await?
-                    .0,
-            )),
-            _ => Err(invalid("unsupported proxy group")),
+    pub(crate) async fn tcp(&self, host: &str, port: u16, source: &str) -> Result<BoxStream> {
+        let (stream, _) = self.tcp_with_route(host, port, source).await?;
+        Ok(stream)
+    }
+    async fn tcp_with_route(
+        &self,
+        host: &str,
+        port: u16,
+        source: &str,
+    ) -> Result<(BoxStream, String)> {
+        let observed = self.monitor.begin(host, port, "tcp", source);
+        let result = tokio::time::timeout(Duration::from_secs(20), async {
+            let (address, action) = self
+                .destination(host, port, Network::Tcp, &observed)
+                .await?;
+            let stream: BoxStream = match action {
+                Action::Direct => Box::new(socket::tcp(address, &self.protect).await?),
+                Action::Proxy(group) if group == "default" => Box::new(
+                    self.open(Kind::Tcp, &address.ip().to_string(), port)
+                        .await?
+                        .0,
+                ),
+                _ => return Err(invalid("unsupported proxy group")),
+            };
+            Ok(stream)
+        })
+        .await;
+        if source == "diagnostic" {
+            self.monitor.diagnostic_route(&observed.route_name());
+        }
+        match result {
+            Ok(Ok(stream)) => {
+                observed.connected();
+                let route = observed.route_name();
+                Ok((observed.stream(stream), route))
+            }
+            Ok(Err(e)) => {
+                observed.failed("connect_failed");
+                Err(e)
+            }
+            Err(_) => {
+                observed.failed("timeout");
+                Err(invalid("connection timeout"))
+            }
         }
     }
     async fn wait_offline(&self) {
@@ -151,6 +228,11 @@ pub fn start_in(
         listener.set_nonblocking(true)?;
         Some(tokio::net::TcpListener::from_std(listener)?)
     };
+    let monitor = monitor::Monitor::new(
+        profile.options.mode.as_str(),
+        profile.endpoint.ip().to_string(),
+    );
+    let (commands, mut requests) = mpsc::channel::<()>(1);
     let context = Arc::new(Context {
         profile,
         policy,
@@ -158,6 +240,7 @@ pub fn start_in(
         names: Mutex::new(names),
         state: state.clone(),
         permits: Arc::new(Semaphore::new(64)),
+        monitor: monitor.clone(),
     });
     let (stack, runner, udp, tcp) = netstack_smoltcp::StackBuilder::default()
         .enable_tcp(true)
@@ -180,6 +263,10 @@ pub fn start_in(
         }
         let c = context.clone();
         tasks.spawn(async move {
+            if c.profile.options.mode == RoutingMode::Direct {
+                c.state.store(1, Ordering::Release);
+                std::future::pending::<()>().await;
+            }
             let mut attempt = 0u32;
             loop {
                 let began = tokio::time::Instant::now();
@@ -230,7 +317,7 @@ pub fn start_in(
             let mut flows=JoinSet::new();
             loop {
                 tokio::select! {
-                    item=tcp.next()=>{let Some((mut stream,_,destination))=item else {break};
+                    item=tcp.next()=>{let Some((mut stream,source,destination))=item else {break};
                         let Ok(permit)=c.permits.clone().try_acquire_owned()else{continue};
                         let c=c.clone();
                         flows.spawn(async move{
@@ -246,7 +333,7 @@ pub fn start_in(
                                     }
                                 }
                                 let host=c.names.lock().await.host(destination.ip())?;
-                                let mut remote=c.tcp(&host,destination.port()).await?;
+                                let mut remote=c.tcp(&host,destination.port(),&source.to_string()).await?;
                                 tokio::select!{r=tokio::io::copy_bidirectional(&mut stream,&mut remote)=>{r?;},_=c.wait_offline()=>{}};Ok::<(),std::io::Error>(())
                             };
                             let _=tokio::time::timeout(Duration::from_secs(86400),work).await;
@@ -270,8 +357,17 @@ pub fn start_in(
         }
         // Task cancellation drops JoinSet, stopping every socket and flow.
         loop {
-            let result =
-                tokio::select! { _ = &mut stopped => break, result = tasks.join_next() => result };
+            let result = tokio::select! {
+                _ = &mut stopped => break,
+                Some(()) = requests.recv() => {
+                    if context.monitor.begin_diagnostic() {
+                        let c=context.clone();
+                        tasks.spawn(async move { diagnostic::run(c).await; });
+                    }
+                    continue;
+                },
+                result = tasks.join_next() => result
+            };
             let Some(result) = result else { break };
             if result.is_err() {
                 break;
@@ -283,6 +379,7 @@ pub fn start_in(
         }
         context.state.store(2, Ordering::Release);
         tasks.shutdown().await;
+        context.monitor.stopped();
     });
     Ok(Engine {
         input,
@@ -290,6 +387,8 @@ pub fn start_in(
         state,
         task,
         stop: Some(stop),
+        monitor,
+        commands,
     })
 }
 pub fn backoff(attempt: u32, jitter: u16) -> Duration {
@@ -328,45 +427,51 @@ async fn udp_flow(
     tx: mpsc::Sender<(Vec<u8>, SocketAddr, SocketAddr)>,
 ) -> Result<()> {
     let host = c.names.lock().await.host(dst.ip())?;
-    let (address, action) = c.destination(&host, dst.port(), Network::Udp).await?;
-    match action {
-        Action::Direct => {
-            let socket = socket::udp(address, &c.protect).await?;
-            let mut buf = [0; 1281];
-            loop {
-                tokio::select! {
-                    data=rx.recv()=>{let Some(data)=data else{return Ok(())};socket.send(&data).await?;},
-                    result=tokio::time::timeout(Duration::from_secs(90),socket.recv(&mut buf))=>{let n=result.map_err(|_|invalid("UDP idle timeout"))??;if n<=1280{let _=tx.try_send((buf[..n].to_vec(),dst,src));}}
+    let observed = c.monitor.begin(&host, dst.port(), "udp", &src.to_string());
+    let work=async {
+        let (address,action)=tokio::time::timeout(Duration::from_secs(20),c.destination(&host,dst.port(),Network::Udp,&observed))
+            .await.map_err(|_|invalid("UDP setup timeout"))??;
+        match action {
+            Action::Direct=>{
+                let socket=socket::udp(address,&c.protect).await?;
+                observed.connected();
+                let mut buf=[0;1281];
+                loop {
+                    tokio::select! {
+                        data=rx.recv()=>{let Some(data)=data else{return Ok(())};let n=socket.send(&data).await?;observed.upload(n);},
+                        result=tokio::time::timeout(Duration::from_secs(90),socket.recv(&mut buf))=>{
+                            let Ok(result)=result else {return Ok(())};
+                            let n=result?;if n<=1280 {observed.download(n);let _=tx.try_send((buf[..n].to_vec(),dst,src));}
+                        }
+                    }
                 }
             }
-        }
-        Action::Proxy(group) if group == "default" => {
-            let (stream, _) = c
-                .open(Kind::Udp, &address.ip().to_string(), address.port())
-                .await?;
-            let (mut read, mut write) = tokio::io::split(stream);
-            let upload = async {
-                while let Some(data) = rx.recv().await {
-                    wire::write_frame(&mut write, wire::PACKET, &data).await?;
-                }
-                Ok::<(), std::io::Error>(())
-            };
-            let download = async {
-                loop {
-                    let (kind, data) =
-                        tokio::time::timeout(Duration::from_secs(90), wire::read_frame(&mut read))
-                            .await
-                            .map_err(|_| invalid("UDP idle timeout"))??;
-                    if kind != wire::PACKET {
-                        return Err(invalid("invalid UDP frame"));
+            Action::Proxy(group) if group=="default"=>{
+                let (stream,_)=tokio::time::timeout(Duration::from_secs(20),c.open(Kind::Udp,&address.ip().to_string(),address.port()))
+                    .await.map_err(|_|invalid("UDP setup timeout"))??;
+                observed.connected();
+                let (mut read,mut write)=tokio::io::split(stream);
+                let upload=async {
+                    while let Some(data)=rx.recv().await {wire::write_frame(&mut write,wire::PACKET,&data).await?;observed.upload(data.len());}
+                    Ok::<(),std::io::Error>(())
+                };
+                let download=async {
+                    loop {
+                        let Ok(result)=tokio::time::timeout(Duration::from_secs(90),wire::read_frame(&mut read)).await else {return Ok(())};
+                        let (kind,data)=result?;
+                        if kind!=wire::PACKET || data.len()>1280 {return Err(invalid("invalid UDP frame"));}
+                        observed.download(data.len());let _=tx.try_send((data,dst,src));
                     }
-                    let _ = tx.try_send((data, dst, src));
-                }
-            };
-            tokio::select! {r=upload=>r,r=download=>r}
+                };
+                tokio::select!{r=upload=>r,r=download=>r}
+            }
+            _=>Err(invalid("blocked UDP")),
         }
-        _ => Err(invalid("blocked UDP")),
+    }.await;
+    if work.is_err() {
+        observed.failed("io_error");
     }
+    work
 }
 #[cfg(test)]
 mod tests {
@@ -375,5 +480,77 @@ mod tests {
     fn retries_are_bounded() {
         assert_eq!(backoff(0, 0), Duration::from_secs(1));
         assert!(backoff(100, 65535) <= Duration::from_millis(30500));
+    }
+
+    fn profile(mode: RoutingMode) -> Profile {
+        serde_json::from_value(serde_json::json!({
+            "endpoint":"127.0.0.1:9","server_name":"localhost","ca_pem":"unused",
+            "device":"mode-test","token":"a".repeat(64),"ipv4":"10.77.0.2","ipv6":"fd77::2",
+            "routes":["0.0.0.0/0"],"dns":["1.1.1.1"],
+            "options":{"mode":mode,"pac_port":0,"policy":"port 443 block\nfinal direct"}
+        }))
+        .unwrap()
+    }
+    #[tokio::test]
+    async fn mode_override_and_matched_rule_are_explicit() {
+        for mode in [RoutingMode::Auto, RoutingMode::Proxy, RoutingMode::Direct] {
+            let profile = profile(mode);
+            let monitor = monitor::Monitor::new(mode.as_str(), "127.0.0.1".into());
+            let c = Context {
+                policy: Policy::parse(&profile.options.policy).unwrap(),
+                profile,
+                protect: Arc::new(|_, _| Ok(())),
+                names: Mutex::new(dns::Names::default()),
+                state: Arc::new(AtomicU8::new(1)),
+                permits: Arc::new(Semaphore::new(64)),
+                monitor: monitor.clone(),
+            };
+            let observed = monitor.begin("1.2.3.4", 443, "tcp", "test");
+            let result = c.destination("1.2.3.4", 443, Network::Tcp, &observed).await;
+            match mode {
+                RoutingMode::Auto => {
+                    assert!(result.is_err());
+                    assert_eq!(observed.route_name(), "block");
+                }
+                RoutingMode::Proxy => {
+                    assert_eq!(result.unwrap().1, Action::Proxy("default".into()))
+                }
+                RoutingMode::Direct => assert_eq!(result.unwrap().1, Action::Direct),
+            }
+            drop(observed);
+            let row = &monitor.snapshot().connections[0];
+            assert_eq!(
+                row.rule_line,
+                if mode == RoutingMode::Auto {
+                    Some(1)
+                } else {
+                    None
+                }
+            );
+        }
+    }
+    #[tokio::test]
+    async fn direct_mode_starts_without_a_server_or_valid_server_ca() {
+        let directory =
+            std::env::temp_dir().join(format!("routeloom-direct-{}", rand::random::<u64>()));
+        let mut engine = start_in(
+            profile(RoutingMode::Direct),
+            Arc::new(|_, _| Ok(())),
+            directory.clone(),
+        )
+        .unwrap();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while engine.state.load(Ordering::Acquire) != 1 {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(engine.monitor.snapshot().mode, "direct");
+        engine.stop.take().unwrap().send(()).unwrap();
+        let _ = (&mut engine.task).await;
+        assert_eq!(engine.state.load(Ordering::Acquire), 2);
+        drop(engine);
+        std::fs::remove_dir_all(directory).unwrap();
     }
 }

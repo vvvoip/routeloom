@@ -23,14 +23,33 @@ pub struct Profile {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Options {
+    pub mode: RoutingMode,
     pub policy: String,
     pub auto_reconnect: bool,
     pub kill_switch: bool,
     pub pac_port: u16,
 }
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RoutingMode {
+    #[default]
+    Auto,
+    Proxy,
+    Direct,
+}
+impl RoutingMode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Proxy => "proxy",
+            Self::Direct => "direct",
+        }
+    }
+}
 impl Default for Options {
     fn default() -> Self {
         Self {
+            mode: RoutingMode::Auto,
             policy: "final proxy:default".into(),
             auto_reconnect: true,
             kill_switch: false,

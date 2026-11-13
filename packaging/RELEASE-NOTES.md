@@ -1,18 +1,21 @@
-RouteLoom 0.2.0 alpha 1 adds domain/IP/port/protocol routing, a local HTTP/CONNECT proxy and PAC, automatic reconnect, protected saved profiles, persistent protection controls, and signed update checks. English and Simplified Chinese are available on all five client platforms.
+RouteLoom 0.3.0 alpha 1 adds a live TCP/UDP connection dashboard, Auto/Proxy/Direct routing modes, and an explicit HTTPS exit-IP test for Windows, Android and Linux. All new controls support English and Simplified Chinese.
+
+- Inspect destination domains/IPs, actual direct/proxy/blocked routes, matching rules, connection states and transferred bytes. Search/filter, pause the display and clear completed rows. The latest 256 connection records stay in RAM; no payloads or credentials are recorded.
+- Auto applies your rules. Proxy and Direct override every rule, including block rules. Direct also resolves DNS over the underlying network and works without the proxy server. Disconnect before changing modes.
+- Test connection uses api.ipify.org through the active engine and displays its actual route and observed exit IP. This is a single-request test, not a complete leak audit.
+- Existing profiles and the deployed RL/2 server remain compatible. The new dashboard UI is not yet available on Apple; Apple work resumes separately.
 
 | Platform | Download | Requirements |
 | --- | --- | --- |
 | Windows | routeloom-windows-x64.zip | Windows 10/11 x64; extract all files and run Start-RouteLoom.cmd |
 | Linux | routeloom-linux-amd64.deb | Ubuntu 24.04+ amd64 desktop, systemd-resolved, polkit and a system keyring |
-| Android | routeloom-android.apk | Android 10+; permanent project signing key |
+| Android | routeloom-android.apk | Android 10+; same permanent signing key as 0.2 |
 | macOS / iOS | routeloom-apple-signing-kit.zip | Source signing kit; Xcode, Flutter 3.50.0, Rust 1.100.0, Node.js, Apple Developer team; **not an installable DMG/IPA** |
 
-Follow [installation](https://github.com/vvvoip/routeloom/blob/main/docs/install.md) and [settings, rules and recovery](https://github.com/vvvoip/routeloom/blob/main/docs/client-features.md). Import a private profile; no server credentials are included.
+Read [installation](https://github.com/vvvoip/routeloom/blob/main/docs/install.md) and [modes, traffic, rules and recovery](https://github.com/vvvoip/routeloom/blob/main/docs/client-features.md). Import a private profile; no server credentials are included.
 
-Protection is opt-in. Desktop protection survives disconnect and requires **Restore direct internet** before uninstalling. Android requires system Always-on VPN and Block connections without VPN. Apple uses system VPN controls with OS exceptions. Apple signing, physical mobile-device validation and complete sleep/network-transition testing remain pending.
+Protection is opt-in. Desktop protection survives disconnect; use **Restore direct internet** before uninstalling. Android requires system Always-on VPN and Block connections without VPN. Explicit Direct mode/rules are intentional exceptions while connected. Existing more-specific routes can bypass capture without protection. Domains require RouteLoom DNS or its local proxy; app-managed encrypted DNS/literal IPs may show only IPs. The encrypted DNS mapping cache persists separately from RAM-only connection history.
 
-Updates are publisher-signed and hash-verified. Windows can replace its portable package, while Linux/Android use their OS installer. Personally signed Apple apps still need Xcode for each update. Windows binaries remain unsigned by a publisher certificate. If upgrading from the 0.1 Android preview, save your profile and uninstall that preview once because the signing key changed.
+Updates are publisher-signed and hash-verified. Windows binaries do not have a publisher code-signing certificate. Android 0.2 upgrades retain the signing key; 0.1 requires saving the profile and uninstalling the old preview once. Personally signed Apple apps still need Xcode for each update. Physical Android/Apple testing and complete sleep/network-transition testing remain pending. This remains an experimental alpha.
 
-Domain routing requires RouteLoom DNS or its local proxy. App-managed encrypted DNS/literal IPs use IP/default rules. The engine handles TCP/UDP, synthesizes A/AAAA records, and has bounded persistent DNS mappings; see the settings guide for limits. The server supports new RL/2 flows and legacy RL/1 clients. Server certificate renewal remains manual.
-
-简体中文：本版本加入域名/IP/端口/协议分流、本地 HTTP/CONNECT 代理及 PAC、自动重连、安全保存配置、持久保护控制和签名更新检查。五个平台包含英语和简体中文。请阅读[安装说明](https://github.com/vvvoip/routeloom/blob/main/docs/install.zh-CN.md)和[功能/恢复指南](https://github.com/vvvoip/routeloom/blob/main/docs/client-features.zh-CN.md)。桌面端卸载前先“恢复直接上网”；Android 需在系统中开启始终 VPN 和阻断；Apple 仍需自己在 Xcode 签名，更新也需重新签名。0.1 Android 预览版需先保存配置、卸载旧版再安装。真机验证及正式分发仍待完成。
+简体中文：本版本为 Windows、Android 和 Linux 增加 TCP/UDP 实时连接面板、自动/代理/直连模式及 HTTPS 出口 IP 测试，均支持中英文。面板显示实际路由、规则和流量；最多 256 条连接记录仅在内存中。自动模式按规则分流；代理/直连会覆盖全部规则（包括阻断），切换前需断开。直连 DNS 通过底层网络，无需代理服务器可用。“测试连接”访问 api.ipify.org，不是完整泄漏检测。已有配置及服务器兼容。Android 0.2 可保留数据升级；Apple 新界面及真机验证待后续完成。请阅读[安装说明](https://github.com/vvvoip/routeloom/blob/main/docs/install.zh-CN.md)和[模式、流量与恢复指南](https://github.com/vvvoip/routeloom/blob/main/docs/client-features.zh-CN.md)。

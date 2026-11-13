@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'services/profile_store.dart';
 import 'widgets/features.dart';
+import 'widgets/traffic.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -98,6 +99,12 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
   TunnelProfile? _sessionProfile;
   TunnelProfile? get _profile =>
       widget.store.active?.profile ?? _sessionProfile;
+  bool get _monitoringSupported => [
+    TargetPlatform.windows,
+    TargetPlatform.android,
+    TargetPlatform.linux,
+  ].contains(defaultTargetPlatform);
+  bool _changingMode = false;
   bool get _active => [
     TunnelState.connected,
     TunnelState.connecting,
@@ -152,7 +159,29 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
     }
   }
 
+  Future<void> _changeMode(String mode) async {
+    final profile = _profile;
+    if (_active || _changingMode || profile == null) return;
+    setState(() => _changingMode = true);
+    try {
+      final updated = profile.withOptions({'mode': mode});
+      if (widget.store.active != null)
+        await widget.store.updateActive(updated);
+      else
+        _sessionProfile = updated;
+      if (mounted) setState(() {});
+    } catch (_) {
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).operationFailed)),
+        );
+    } finally {
+      if (mounted) setState(() => _changingMode = false);
+    }
+  }
+
   Future<void> _toggle() async {
+    if (_changingMode) return;
     try {
       if (_state == TunnelState.connected ||
           _state == TunnelState.connecting ||
@@ -219,6 +248,14 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 16),
+                if (_monitoringSupported && _profile != null) ...[
+                  ModePicker(
+                    mode: _profile!.options['mode'] as String,
+                    enabled: !_active && !_changingMode,
+                    onChanged: _changeMode,
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 FilledButton.icon(
                   key: const Key('connect-button'),
                   onPressed:
@@ -226,7 +263,8 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                               _state != TunnelState.connected &&
                               _state != TunnelState.connecting &&
                               _state != TunnelState.reconnecting) ||
-                          _state == TunnelState.disconnecting
+                          _state == TunnelState.disconnecting ||
+                          _changingMode
                       ? null
                       : _toggle,
                   icon: const Icon(Icons.power_settings_new),
@@ -240,11 +278,7 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
-                  onPressed:
-                      _state == TunnelState.connected ||
-                          _state == TunnelState.connecting
-                      ? null
-                      : _import,
+                  onPressed: _active || _changingMode ? null : _import,
                   icon: const Icon(Icons.content_paste),
                   label: Text(t.importProfile),
                 ),
@@ -257,28 +291,37 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
           ),
           FeaturePanel(
             store: widget.store,
-            active: _active,
+            active: _active || _changingMode,
             onChanged: () => setState(() {}),
             state: _state,
             disconnect: _adapter.disconnect,
           ),
-          _card(t.launchScope, t.launchDescription),
+          if (!_monitoringSupported) _card(t.launchScope, t.launchDescription),
         ],
       ),
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(t.currentPlatform + ': ' + platformName(defaultTargetPlatform)),
-          const SizedBox(height: 18),
-          for (var i = 0; i < clientPlatforms.length; i++)
-            _card(
-              platformName(clientPlatforms[i]),
-              details[i],
-              extra: Text(t.adapterPending),
+      if (_monitoringSupported)
+        TrafficPanel(
+          adapter: _adapter,
+          active: _active,
+          connected: _state == TunnelState.connected,
+        )
+      else
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              t.currentPlatform + ': ' + platformName(defaultTargetPlatform),
             ),
-          Text(t.appleLimit),
-        ],
-      ),
+            const SizedBox(height: 18),
+            for (var i = 0; i < clientPlatforms.length; i++)
+              _card(
+                platformName(clientPlatforms[i]),
+                details[i],
+                extra: Text(t.adapterPending),
+              ),
+            Text(t.appleLimit),
+          ],
+        ),
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -354,8 +397,12 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
             label: t.overview,
           ),
           NavigationDestination(
-            icon: const Icon(Icons.devices),
-            label: t.platforms,
+            icon: Icon(
+              _monitoringSupported
+                  ? Icons.monitor_heart_outlined
+                  : Icons.devices,
+            ),
+            label: _monitoringSupported ? t.traffic : t.platforms,
           ),
           NavigationDestination(
             icon: const Icon(Icons.settings_outlined),

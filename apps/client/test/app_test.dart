@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:convert';
+import 'tunnel_test.dart' show fixture;
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +10,56 @@ import 'package:routeloom/services/profile_store.dart';
 import 'package:routeloom/platforms/tunnel_adapter.dart';
 
 void main() {
+  testWidgets('cannot connect until a routing-mode save finishes', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    var connects = 0;
+    messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (
+      call,
+    ) async {
+      if (call.method == 'status') return 'disconnected';
+      if (call.method == 'connect') connects++;
+      return null;
+    });
+    addTearDown(() {
+      debugDefaultTargetPlatformOverride = null;
+      messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
+    });
+    final vault = DelayedVault();
+    final store = ProfileStore(vault: vault);
+    await store.load();
+    await store.import(TunnelProfile.parse(jsonEncode(fixture())));
+    await tester.pumpWidget(RouteLoomApp(store: store));
+    await tester.pumpAndSettle();
+    vault.pending = Completer<void>();
+    final picker = tester.widget<DropdownButton<String>>(
+      find.byKey(const Key('routing-mode')),
+    );
+    picker.onChanged!('direct');
+    await tester.pump();
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('connect-button')))
+          .onPressed,
+      isNull,
+    );
+    expect(connects, 0);
+    vault.pending!.completeError(StateError('Storage unavailable'));
+    await tester.pumpAndSettle();
+    expect(store.active!.profile.options['mode'], 'auto');
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('connect-button')))
+          .onPressed,
+      isNotNull,
+    );
+    expect(connects, 0);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'reopened mobile app can disconnect an existing VPN without reimport',
     (tester) async {
@@ -102,5 +155,14 @@ class TestVault implements Vault {
   @override
   Future<void> write(String value) async {
     raw = value;
+  }
+}
+
+class DelayedVault extends TestVault {
+  Completer<void>? pending;
+  @override
+  Future<void> write(String value) async {
+    if (pending != null) await pending!.future;
+    await super.write(value);
   }
 }

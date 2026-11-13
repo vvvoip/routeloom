@@ -45,7 +45,7 @@ pub async fn serve(c: Arc<Context>, listener: TcpListener) -> Result<()> {
                             let (auth,path)=rest.split_once('/').map(|(a,p)|(a,format!("/{p}"))).unwrap_or((rest,"/".into()));
                             let (host,port)=authority(auth,80)?;(host,port,Some(path))
                         };
-                        let mut remote=match c.tcp(&host,port).await {
+                        let mut remote=match c.tcp(&host,port,"local-proxy").await {
                             Ok(s)=>s,
                             Err(_)=>{local.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").await?;return Ok(());}
                         };

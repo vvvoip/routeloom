@@ -13,6 +13,8 @@ struct Entry {
     engine: Mutex<Engine>,
     input: tokio::sync::mpsc::Sender<Vec<u8>>,
     state: Arc<std::sync::atomic::AtomicU8>,
+    monitor: Arc<crate::monitor::Monitor>,
+    commands: tokio::sync::mpsc::Sender<()>,
 }
 static ENGINES: OnceLock<Mutex<HashMap<u64, Arc<Entry>>>> = OnceLock::new();
 static NEXT: AtomicU64 = AtomicU64::new(1);
@@ -51,6 +53,8 @@ pub fn start_json_in(json: &str, protect: Protector, directory: std::path::PathB
         let entry = Entry {
             input: engine.input.clone(),
             state: engine.state.clone(),
+            monitor: engine.monitor.clone(),
+            commands: engine.commands.clone(),
             engine: Mutex::new(engine),
         };
         all.insert(id, Arc::new(entry));
@@ -84,6 +88,25 @@ pub fn read(id: u64) -> Option<Vec<u8>> {
             .flatten()
     })
 }
+
+pub fn snapshot(id: u64) -> Option<String> {
+    let entry = engine(id)?;
+    serde_json::to_string(&entry.monitor.snapshot()).ok()
+}
+pub fn command(id: u64, command: &str) -> bool {
+    let Some(entry) = engine(id) else {
+        return false;
+    };
+    match command {
+        "clear" => {
+            entry.monitor.clear_history();
+            true
+        }
+        "diagnose" => entry.commands.try_send(()).is_ok(),
+        _ => false,
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn routeloom_status(id: u64) -> u8 {
     engine(id)

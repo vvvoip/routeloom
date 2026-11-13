@@ -32,7 +32,27 @@ def http_server():
         def log_message(self,*args):pass
     HTTPServer(('192.0.2.1',18082),Handler).serve_forever()
 
+
+def dns_server():
+    import struct
+    server=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    server.bind(("192.0.2.53",53))
+    while True:
+        data,peer=server.recvfrom(4096)
+        end=12
+        while end<len(data) and data[end]:end+=1+data[end]
+        end+=1
+        qtype=int.from_bytes(data[end:end+2],"big")
+        question=data[12:end+4]
+        answer=b""
+        if qtype==1:
+            answer=b"\xc0\x0c"+struct.pack("!HHIH",1,1,30,4)+socket.inet_aton("192.0.2.1")
+        reply=data[:2]+struct.pack("!HHHHH",0x8180,1,1 if answer else 0,0,0)+question+answer
+        server.sendto(reply,peer)
+
 if sys.argv[1] == "serve":
+    threading.Thread(target=dns_server,daemon=True).start()
+    threading.Thread(target=udp_server,args=(socket.AF_INET,"192.0.2.1"),daemon=True).start()
     threading.Thread(target=http_server,daemon=True).start()
     for family, address in [(socket.AF_INET, "10.77.0.1"), (socket.AF_INET6, "fd77::1")]:
         threading.Thread(target=tcp_server, args=(family,address), daemon=True).start()

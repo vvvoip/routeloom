@@ -41,6 +41,11 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     } catch (_: Exception) { result.error("profile","Unable to remove background profile",null) }
                 }
+                "snapshot" -> result.success(RouteLoomVpnService.snapshot())
+                "monitorCommand" -> {
+                    val command = call.arguments as? String
+                    result.success(command in listOf("clear","diagnose") && RouteLoomVpnService.command(command!!))
+                }
                 "status" -> result.success(RouteLoomVpnService.state)
                 "guardStatus" -> result.success(RouteLoomVpnService.lockdown)
                 "guardSettings" -> { startActivity(Intent(android.provider.Settings.ACTION_VPN_SETTINGS)); result.success(null) }

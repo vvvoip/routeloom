@@ -18,6 +18,9 @@ class RouteLoomVpnService : VpnService() {
     companion object {
         @Volatile var state = "disconnected"; private set
         @Volatile var lockdown = false; private set
+        @Volatile private var activeEngine = 0L
+        fun snapshot(): String = NativeEngine.snapshot(activeEngine)
+        fun command(command: String): Boolean = NativeEngine.command(activeEngine, command)
         fun markStarting() { state = "connecting" }
         fun markFailed() { state = "failed" }
     }
@@ -60,6 +63,7 @@ class RouteLoomVpnService : VpnService() {
             synchronized(this) {
                 if (closed.get()) { NativeEngine.stop(handle); return }
                 ProfileVault.save(this@RouteLoomVpnService, raw)
+                activeEngine = handle
             }
             val p = JSONObject(raw)
             val builder = Builder().setSession("RouteLoom").setMtu(1280).setBlocking(true).setMetered(false)
@@ -106,6 +110,7 @@ class RouteLoomVpnService : VpnService() {
         fun close() { synchronized(this) {
             if (!closed.compareAndSet(false,true)) return
             try { tun?.close() } catch (_: Exception) {}
+            if (activeEngine == handle) activeEngine = 0L
             NativeEngine.stop(handle); workers.shutdownNow()
         } }
     }

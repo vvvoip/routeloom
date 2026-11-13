@@ -94,3 +94,26 @@ pub extern "system" fn Java_org_routeloom_routeloom_NativeEngine_stop(
 ) {
     crate::ffi::routeloom_stop(id as u64);
 }
+
+#[no_mangle]
+pub extern "system" fn Java_org_routeloom_routeloom_NativeEngine_snapshot(
+    env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) -> jni::sys::jstring {
+    env.new_string(crate::ffi::snapshot(id as u64).unwrap_or_default())
+        .map(|s| s.into_raw())
+        .unwrap_or(std::ptr::null_mut())
+}
+#[no_mangle]
+pub extern "system" fn Java_org_routeloom_routeloom_NativeEngine_command(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    command: JString,
+) -> jni::sys::jboolean {
+    let Ok(text) = env.get_string(&command) else {
+        return 0;
+    };
+    crate::ffi::command(id as u64, &String::from(text)) as jni::sys::jboolean
+}

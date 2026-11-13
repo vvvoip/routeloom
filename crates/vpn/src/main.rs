@@ -35,7 +35,7 @@ async fn main() {
         Some("unlock") if args.len() == 2 => guard::disable(),
         Some("connect-stdio") if args.len() == 2 => connect_stdio().await,
         Some("connect") if args.len() == 3 => match read_config::<Profile>(&args[2]) {
-            Ok(profile) => connect(profile).await,
+            Ok(profile) => connect_cli(profile).await,
             Err(e) => Err(e),
         },
         Some("serve") if args.len() == 3 => match read_config::<server::Config>(&args[2]) {
@@ -57,7 +57,11 @@ async fn main() {
         std::process::exit(1);
     }
 }
-async fn connect(profile: Profile) -> Result<()> {
+async fn connect(
+    profile: Profile,
+    mut commands: tokio::sync::mpsc::Receiver<String>,
+    reports: tokio::sync::mpsc::Sender<serde_json::Value>,
+) -> Result<()> {
     profile.validate()?;
     let protector = routeloom_engine::socket::desktop_protector(profile.endpoint);
     let mut engine = routeloom_engine::start(profile.clone(), protector)?;
@@ -84,7 +88,7 @@ async fn connect(profile: Profile) -> Result<()> {
     if profile.options.kill_switch || guard::is_enabled()? {
         guard::enable(&name)?;
     }
-    println!("{{\"state\":\"connecting\"}}");
+    let _ = reports.try_send(serde_json::json!({"state":"connecting"}));
     let mut last = 0;
     let mut status = tokio::time::interval(Duration::from_millis(500));
     let mut packet = vec![0; 1281];
@@ -95,19 +99,50 @@ async fn connect(profile: Profile) -> Result<()> {
             _=status.tick()=>{
                 let state=engine.state.load(std::sync::atomic::Ordering::Acquire);
                 if state!=last {
-                    println!("{{\"state\":\"{}\"}}",if state==1{"connected"}else if state==0{"reconnecting"}else{"blocked"});last=state;
+                    if reports.try_send(serde_json::json!({"state":if state==1{"connected"}else if state==0{"reconnecting"}else{"blocked"}})).is_ok() {last=state;}
                 }
+            },
+            command=commands.recv()=>match command.as_deref() {
+                Some("snapshot")=>{let _=reports.try_send(serde_json::json!({"telemetry":engine.monitor.snapshot()}));},
+                Some("clear")=>engine.monitor.clear_history(),
+                Some("diagnose")=>{let _=engine.commands.try_send(());},
+                _=>return Ok(()),
             },
             r=tokio::signal::ctrl_c()=>return r,
         }
     }
 }
 
+async fn run_connection(
+    profile: Profile,
+    commands: tokio::sync::mpsc::Receiver<String>,
+) -> Result<()> {
+    use tokio::io::AsyncWriteExt;
+    let (reports, mut receiver) = tokio::sync::mpsc::channel::<serde_json::Value>(8);
+    let mut printer = tokio::spawn(async move {
+        let mut output = tokio::io::stdout();
+        while let Some(value) = receiver.recv().await {
+            let mut bytes = serde_json::to_vec(&value).map_err(std::io::Error::other)?;
+            bytes.push(b'\n');
+            output.write_all(&bytes).await?;
+            output.flush().await?;
+        }
+        Ok::<(), std::io::Error>(())
+    });
+    let result = connect(profile, commands, reports).await;
+    let _ = tokio::time::timeout(Duration::from_secs(2), &mut printer).await;
+    printer.abort();
+    result
+}
+async fn connect_cli(profile: Profile) -> Result<()> {
+    let (_keep, commands) = tokio::sync::mpsc::channel(1);
+    run_connection(profile, commands).await
+}
 async fn connect_stdio() -> Result<()> {
-    use tokio::io::{AsyncBufReadExt, AsyncReadExt};
-    let mut input = tokio::io::BufReader::new(tokio::io::stdin().take(65537));
+    use std::io::{BufRead, Read};
+    let mut input = std::io::BufReader::new(std::io::stdin());
     let mut raw = String::new();
-    input.read_line(&mut raw).await?;
+    (&mut input).take(65537).read_line(&mut raw)?;
     if raw.len() > 65536 {
         return Err(invalid("profile too large"));
     }
@@ -116,5 +151,23 @@ async fn connect_stdio() -> Result<()> {
     }
     let profile: Profile = serde_json::from_str(&raw).map_err(|_| invalid("invalid profile"))?;
     raw.clear();
-    tokio::select! {r=connect(profile)=>r, _=input.read_line(&mut raw)=>Ok(())}
+    let (sender, commands) = tokio::sync::mpsc::channel(8);
+    // A dedicated OS thread can end with the process; a cancelled tokio stdin
+    // blocking read otherwise prevents helper shutdown on an engine error.
+    std::thread::spawn(move || loop {
+        let mut command = String::new();
+        let n = (&mut input).take(129).read_line(&mut command);
+        if !matches!(n,Ok(n) if n>0) || command.len() > 128 {
+            let _ = sender.blocking_send("disconnect".into());
+            break;
+        }
+        let command = command.trim();
+        if !["snapshot", "clear", "diagnose", "disconnect"].contains(&command) {
+            continue;
+        }
+        if sender.blocking_send(command.to_owned()).is_err() || command == "disconnect" {
+            break;
+        }
+    });
+    run_connection(profile, commands).await
 }

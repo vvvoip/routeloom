@@ -7,4 +7,6 @@ object NativeEngine {
     @JvmStatic external fun read(handle: Long): ByteArray?
     @JvmStatic external fun status(handle: Long): Int
     @JvmStatic external fun stop(handle: Long)
+    @JvmStatic external fun snapshot(handle: Long): String
+    @JvmStatic external fun command(handle: Long, command: String): Boolean
 }
