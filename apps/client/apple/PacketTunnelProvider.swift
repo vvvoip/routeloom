@@ -8,6 +8,7 @@ import Security
 @_silgen_name("routeloom_stop") private func engineStop(_ handle: UInt64)
 final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let queue = DispatchQueue(label: "org.routeloom.packet")
+    private let outputQueue = DispatchQueue(label: "org.routeloom.packet.output")
     private var handle: UInt64 = 0
     private var stopped = false
     private var paused = false
@@ -67,16 +68,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     private func poll() {
         guard !stopped else { return }
-        if !paused && handle != 0 {
-            var buffer = [UInt8](repeating: 0, count: 1280)
-            let count = engineRead(handle, &buffer, 1280)
-            if count > 0 {
-                let packet = Data(buffer.prefix(count))
-                packetFlow.writePackets([packet], withProtocols: [NSNumber(value: packet[0] >> 4 == 4 ? AF_INET : AF_INET6)])
-            }
-            reasserting = engineStatus(handle) != 1
+        guard !paused && handle != 0 else {
+            queue.asyncAfter(deadline: .now() + 0.2) { self.poll() }; return
         }
-        queue.asyncAfter(deadline: .now() + (paused ? 0.2 : 0.001)) { self.poll() }
+        let active = handle
+        // Waiting for output must not hold up packetFlow input or control messages.
+        outputQueue.async {
+            var buffer = [UInt8](repeating: 0, count: 1280)
+            let count = engineRead(active, &buffer, 1280)
+            let packet = count > 0 ? Data(buffer.prefix(count)) : nil
+            self.queue.async {
+                guard !self.stopped else { return }
+                if !self.paused && self.handle == active {
+                    if let packet = packet {
+                        self.packetFlow.writePackets([packet], withProtocols: [NSNumber(value: packet[0] >> 4 == 4 ? AF_INET : AF_INET6)])
+                    }
+                    self.reasserting = engineStatus(active) != 1
+                }
+                self.queue.asyncAfter(deadline: .now() + 0.001) { self.poll() }
+            }
+        }
     }
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
         queue.async {

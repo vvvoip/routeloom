@@ -74,5 +74,5 @@
   "trafficBlocked": "流量已阻止",
   "licenses": "开源许可证",
   "guardStatusOn": "Android 系统阻断已开启。",
-  "guardStatusOff": "Android 系统阻断未开启，请在 VPN 设置中启用。"
+  "guardStatusOff": "尚未确认系统阻断状态，请检查 Android VPN 设置。"
 }

@@ -36,6 +36,7 @@ pub struct Engine {
     /// 0 connecting/reconnecting, 1 connected, 2 stopped/error.
     pub state: Arc<AtomicU8>,
     task: tokio::task::JoinHandle<()>,
+    stop: Option<tokio::sync::oneshot::Sender<()>>,
 }
 impl Drop for Engine {
     fn drop(&mut self) {
@@ -169,6 +170,7 @@ pub fn start_in(
         .tcp_send_buffer_size(32768)
         .mtu(1280)
         .build()?;
+    let (stop, mut stopped) = tokio::sync::oneshot::channel();
     let task = tokio::spawn(async move {
         let mut tasks = JoinSet::new();
         if let Some(runner) = runner {
@@ -267,7 +269,10 @@ pub fn start_in(
             });
         }
         // Task cancellation drops JoinSet, stopping every socket and flow.
-        while let Some(result) = tasks.join_next().await {
+        loop {
+            let result =
+                tokio::select! { _ = &mut stopped => break, result = tasks.join_next() => result };
+            let Some(result) = result else { break };
             if result.is_err() {
                 break;
             }
@@ -277,12 +282,14 @@ pub fn start_in(
             }
         }
         context.state.store(2, Ordering::Release);
+        tasks.shutdown().await;
     });
     Ok(Engine {
         input,
         output,
         state,
         task,
+        stop: Some(stop),
     })
 }
 pub fn backoff(attempt: u32, jitter: u16) -> Duration {

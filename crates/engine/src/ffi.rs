@@ -9,7 +9,12 @@ use std::{
     time::Duration,
 };
 static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
-static ENGINES: OnceLock<Mutex<HashMap<u64, Arc<Mutex<Engine>>>>> = OnceLock::new();
+struct Entry {
+    engine: Mutex<Engine>,
+    input: tokio::sync::mpsc::Sender<Vec<u8>>,
+    state: Arc<std::sync::atomic::AtomicU8>,
+}
+static ENGINES: OnceLock<Mutex<HashMap<u64, Arc<Entry>>>> = OnceLock::new();
 static NEXT: AtomicU64 = AtomicU64::new(1);
 fn runtime() -> &'static tokio::runtime::Runtime {
     RUNTIME.get_or_init(|| {
@@ -43,12 +48,17 @@ pub fn start_json_in(json: &str, protect: Protector, directory: std::path::PathB
         if !all.is_empty() {
             return 0;
         } // One device VPN engine per process.
-        all.insert(id, Arc::new(Mutex::new(engine)));
+        let entry = Entry {
+            input: engine.input.clone(),
+            state: engine.state.clone(),
+            engine: Mutex::new(engine),
+        };
+        all.insert(id, Arc::new(entry));
         id
     }))
     .unwrap_or(0)
 }
-fn engine(id: u64) -> Option<Arc<Mutex<Engine>>> {
+fn engine(id: u64) -> Option<Arc<Entry>> {
     ENGINES
         .get_or_init(Default::default)
         .lock()
@@ -61,12 +71,12 @@ pub fn write(id: u64, data: Vec<u8>) -> bool {
         return false;
     }
     engine(id)
-        .and_then(|e| e.lock().ok().map(|e| e.input.try_send(data).is_ok()))
+        .map(|e| e.input.try_send(data).is_ok())
         .unwrap_or(false)
 }
 pub fn read(id: u64) -> Option<Vec<u8>> {
     let engine = engine(id)?;
-    let mut engine = engine.lock().ok()?;
+    let mut engine = engine.engine.lock().ok()?;
     runtime().block_on(async {
         tokio::time::timeout(Duration::from_millis(100), engine.output.recv())
             .await
@@ -77,7 +87,7 @@ pub fn read(id: u64) -> Option<Vec<u8>> {
 #[no_mangle]
 pub extern "C" fn routeloom_status(id: u64) -> u8 {
     engine(id)
-        .and_then(|e| e.lock().ok().map(|e| e.state.load(Ordering::Acquire)))
+        .map(|e| e.state.load(Ordering::Acquire))
         .unwrap_or(2)
 }
 #[no_mangle]
@@ -85,8 +95,10 @@ pub extern "C" fn routeloom_stop(id: u64) {
     if let Ok(mut all) = ENGINES.get_or_init(Default::default).lock() {
         if let Some(engine) = all.remove(&id) {
             drop(all);
-            if let Ok(mut engine) = engine.lock() {
-                engine.task.abort();
+            if let Ok(mut engine) = engine.engine.lock() {
+                if let Some(stop) = engine.stop.take() {
+                    let _ = stop.send(());
+                }
                 runtime().block_on(async {
                     let _ = (&mut engine.task).await;
                 });
@@ -149,4 +161,48 @@ pub unsafe extern "C" fn routeloom_read(id: u64, output: *mut u8, capacity: usiz
     }
     std::ptr::copy_nonoverlapping(data.as_ptr(), output, data.len());
     data.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn input_is_independent_of_output_and_restart_releases_cache() {
+        let directory =
+            std::env::temp_dir().join(format!("routeloom-ffi-{}", rand::random::<u64>()));
+        let profile = serde_json::json!({
+            "endpoint":"127.0.0.1:9", "server_name":"localhost", "ca_pem":"test",
+            "device":"ffi-test", "token":"a".repeat(64), "ipv4":"10.77.0.2","ipv6":"fd77::2",
+            "routes":["0.0.0.0/0"],"dns":["1.1.1.1"],
+            "options":{"policy":"final proxy:default","pac_port":0}
+        })
+        .to_string();
+        let protect: Protector = Arc::new(|_, _| Ok(()));
+        let first = start_json_in(&profile, protect.clone(), directory.clone());
+        assert_ne!(first, 0);
+        let entry = engine(first).unwrap();
+        let output_lock = entry.engine.lock().unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let writer = std::thread::spawn(move || {
+            let result = write(first, vec![0; 20]);
+            let status = routeloom_status(first);
+            tx.send((result, status)).unwrap();
+        });
+        let result = rx.recv_timeout(Duration::from_secs(1));
+        drop(output_lock);
+        writer.join().unwrap();
+        assert!(result.expect("input/status must not wait on output").0);
+        routeloom_stop(first);
+        drop(entry);
+        let second = start_json_in(&profile, protect, directory.clone());
+        assert_ne!(
+            second, 0,
+            "stop must release the encrypted journal before returning"
+        );
+        routeloom_stop(second);
+        assert!(std::fs::canonicalize(&directory)
+            .unwrap()
+            .starts_with(std::fs::canonicalize(std::env::temp_dir()).unwrap()));
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 }

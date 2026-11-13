@@ -74,5 +74,5 @@
   "trafficBlocked": "Traffic blocked",
   "licenses": "Open-source licenses",
   "guardStatusOn": "Android system lockdown is active.",
-  "guardStatusOff": "Android system lockdown is not active. Enable it in VPN settings."
+  "guardStatusOff": "System lockdown is not confirmed. Check Android VPN settings."
 }

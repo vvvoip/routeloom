@@ -30,7 +30,10 @@ class RouteLoomVpnService : VpnService() {
         if (raw == null) { state = "failed"; stopSelf(); return START_NOT_STICKY }
         val manager = getSystemService(NotificationManager::class.java)
         manager.createNotificationChannel(NotificationChannel("vpn", "RouteLoom VPN", NotificationManager.IMPORTANCE_LOW))
+        val stop = android.app.PendingIntent.getService(this, 1, Intent(this,RouteLoomVpnService::class.java).setAction("stop"), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
+        val open = android.app.PendingIntent.getActivity(this, 2, Intent(this,MainActivity::class.java), android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE)
         val notification = Notification.Builder(this,"vpn").setContentTitle("RouteLoom")
+            .setContentIntent(open).addAction(Notification.Action.Builder(null,getString(R.string.vpn_disconnect),stop).build())
             .setContentText(getString(R.string.vpn_active)).setSmallIcon(android.R.drawable.ic_lock_lock).setOngoing(true).build()
         startForeground(1, notification)
         state = "connecting"
@@ -39,7 +42,7 @@ class RouteLoomVpnService : VpnService() {
     }
     private fun stopVpn() { session?.close(); session = null; state = "disconnected"; stopForeground(STOP_FOREGROUND_REMOVE); stopSelf() }
     override fun onRevoke() { try { ProfileVault.clear(this) } catch (_: Exception) {} finally { stopVpn(); super.onRevoke() } }
-    override fun onDestroy() { session?.close(); session = null; if (state != "failed") state = "disconnected"; super.onDestroy() }
+    override fun onDestroy() { lockdown = false; session?.close(); session = null; if (state != "failed") state = "disconnected"; super.onDestroy() }
     private inner class Session(private val raw: String) {
         private val closed = AtomicBoolean(false)
         private val workers = Executors.newFixedThreadPool(2)

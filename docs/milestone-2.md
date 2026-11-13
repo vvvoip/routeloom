@@ -4,7 +4,7 @@ Version 0.2 implements shared RL/2 domain/IP routing, PAC/HTTP CONNECT, reconnec
 
 ## Verified during development
 
-- Local Windows Rust workspace: 29 tests pass, including TLS rejection, policy precedence, encrypted DNS-journal persistence/profile separation, archive-path confinement and protecting a Windows socket before binding.
+- Local Windows Rust workspace: 30 tests pass, including TLS rejection, policy precedence, encrypted DNS-journal persistence/profile separation, archive-path confinement and protecting a Windows socket before binding.
 - Flutter: 15 tests pass, including secure profile persistence, failed vault writes, signed update tampering/rollback/path rejection and five-platform UI rendering.
 - Bilingual website/localization/release-metadata checks pass.
 - Linux CI namespaces: IPv4/IPv6 TCP/UDP capture, direct/proxy/blocked domains sharing one IP, PAC, automatic recovery after server suspension, protection after helper disconnect, preservation of unrelated firewall tables, unlock recovery and invalid credentials/private destinations.

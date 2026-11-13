@@ -1,4 +1,4 @@
 <resources>
-    <string name="vpn_active">Encrypted VPN connection active</string>
+    <string name="vpn_active">RouteLoom VPN service is running</string>
     <string name="vpn_disconnect">Disconnect</string>
 </resources>

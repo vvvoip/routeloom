@@ -84,3 +84,29 @@ if sys.argv[1] == 'domain':
         assert b'200 OK' not in result
     except (ConnectionError,TimeoutError,OSError):pass
     print('Domain DIRECT/PROXY/BLOCK decisions passed with a shared destination IP.')
+
+if sys.argv[1] == 'domain':
+    from http.client import HTTPConnection
+    local = HTTPConnection('127.0.0.1', 12789, timeout=5)
+    local.request('GET','/proxy.pac')
+    response = local.getresponse()
+    pac = response.read()
+    assert response.status == 200 and b'PROXY 127.0.0.1:12789' in pac and b'DIRECT' not in pac
+    local.close()
+    for host,source in [('direct.routeloom.test',b'192.0.2.2'),('proxy.routeloom.test',b'192.0.2.1')]:
+        local = HTTPConnection('127.0.0.1',12789,timeout=5)
+        local.request('GET','http://'+host+':18082/')
+        response = local.getresponse()
+        assert response.status == 200 and response.read() == source
+        local.close()
+        local = HTTPConnection('127.0.0.1',12789,timeout=5)
+        local.set_tunnel(host,18082)
+        local.request('GET','/')
+        response = local.getresponse()
+        assert response.status == 200 and response.read() == source
+        local.close()
+    local = HTTPConnection('127.0.0.1',12789,timeout=5)
+    local.request('GET','http://blocked.routeloom.test:18082/')
+    assert local.getresponse().status == 502
+    local.close()
+    print('PAC, HTTP and CONNECT share DIRECT/PROXY/BLOCK policy with no direct fallback.')

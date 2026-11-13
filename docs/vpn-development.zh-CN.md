@@ -21,11 +21,11 @@ sudo target/release/routeloom-vpn serve .local/demo/server.json
 
 - Windows：需要管理员权限及辅助程序旁的签名 Wintun DLL。在管理员终端运行 `routeloom-vpn connect device.profile.json`。
 - Linux：需要 root、iproute2、systemd-resolved/resolvectl。运行 `sudo routeloom-vpn connect device.profile.json`。其他 DNS 管理器尚未接入。
-- Windows/Linux Flutter 界面：将辅助程序放在应用旁，或通过 ROUTELOOM_VPN_BINARY 指定绝对路径。它继承当前权限，不会自动提权。建议先用命令行验证；生产版仍需最小权限后台服务和安装器。
-- Android：最低 Android 10/API 29。安装调试 APK，复制设备配置，选择“从剪贴板导入配置”，点击“连接”并授予 VPN 权限。前台通知支持断开；撤销权限会关闭连接。暂不支持开机自动连接。
+- Windows/Linux Flutter 界面：将辅助程序放在应用旁，或通过 ROUTELOOM_VPN_BINARY 指定绝对路径。Windows 启动器提升界面及辅助程序权限；Linux 仅通过 pkexec 提升辅助程序权限。生产版仍需最小权限服务和签名安装器。
+- Android：最低 Android 10/API 29，构建工具使用 JDK 21。先运行 scripts/build-native.sh android 构建 JNI 库，再按 CI 收集许可证并构建 Flutter APK。导入配置并授予 VPN 权限；持久保护需要在系统启用始终 VPN 和阻断。后台配置使用 AndroidKeyStore 保护。
 - macOS/iOS：在 Mac 上打开 Runner Xcode workspace，为 Runner 和 PacketTunnel 两个 target 设置开发团队、唯一的应用标识和 Network Extensions 权限。扩展标识必须是应用标识加 `.PacketTunnel`。使用 Mac 和实体 iPhone/iPad 验证。CI 不包含签名和真机运行验证；分发方式必须符合 Apple 要求，Developer ID system extension 方案尚未实现。
 
-配置只在本次会话中使用，未写入 VPN 偏好设置。TLS 校验证书和服务器名称后才发送令牌、安装路由。断开时回滚拥有的路由和 DNS；**连接失败后释放捕获，不提供持久断网保护**。进程被强制结束后应检查残留网络设置。
+配置保存到系统保护的凭据存储，Apple 后台配置放在共享 Keychain，不将令牌写入 VPN 偏好设置。TLS 校验证书和服务器名称后才发送令牌；重连期间保留捕获。普通断开清理拥有的路由/DNS，已启用的持久保护必须通过“恢复直接上网”移除。详见[功能与限制](client-features.zh-CN.md)。
 
 ## 验证和范围
 
