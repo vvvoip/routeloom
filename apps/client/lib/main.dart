@@ -181,6 +181,7 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
   }
 
   Future<void> _toggle() async {
+    if (_changingMode) return;
     try {
       if (_state == TunnelState.connected ||
           _state == TunnelState.connecting ||
@@ -262,7 +263,8 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                               _state != TunnelState.connected &&
                               _state != TunnelState.connecting &&
                               _state != TunnelState.reconnecting) ||
-                          _state == TunnelState.disconnecting
+                          _state == TunnelState.disconnecting ||
+                          _changingMode
                       ? null
                       : _toggle,
                   icon: const Icon(Icons.power_settings_new),
@@ -276,7 +278,7 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
                 ),
                 const SizedBox(height: 8),
                 TextButton.icon(
-                  onPressed: _active ? null : _import,
+                  onPressed: _active || _changingMode ? null : _import,
                   icon: const Icon(Icons.content_paste),
                   label: Text(t.importProfile),
                 ),
@@ -289,7 +291,7 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
           ),
           FeaturePanel(
             store: widget.store,
-            active: _active,
+            active: _active || _changingMode,
             onChanged: () => setState(() {}),
             state: _state,
             disconnect: _adapter.disconnect,
