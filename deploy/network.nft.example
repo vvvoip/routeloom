@@ -1,0 +1,34 @@
+# Substitute the external interface and server public IPv4 before installing.
+# This owns only the routeloom_* tables. It does not flush other firewall rules.
+define uplink = "eth0"
+define server_public = 192.0.2.1
+table inet routeloom_filter {
+    set blocked_ipv4 {
+        type ipv4_addr
+        flags interval
+        elements = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8,
+                     169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/16, 192.168.0.0/16,
+                     198.18.0.0/15, 224.0.0.0/4, 240.0.0.0/4 }
+    }
+    chain input {
+        type filter hook input priority -10; policy accept;
+        iifname "rl-server" counter drop
+    }
+    chain forward {
+        type filter hook forward priority -10; policy accept;
+        iifname "rl-server" meta nfproto ipv6 counter reject with icmpv6 type no-route
+        iifname "rl-server" ip saddr != 10.77.0.0/24 counter drop
+        iifname "rl-server" ip daddr @blocked_ipv4 counter drop
+        iifname "rl-server" ip daddr $server_public counter drop
+        iifname "rl-server" oifname $uplink counter accept
+        iifname "rl-server" counter drop
+        oifname "rl-server" ct state established,related counter accept
+        oifname "rl-server" counter drop
+    }
+}
+table ip routeloom_nat {
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        ip saddr 10.77.0.0/24 oifname $uplink counter masquerade
+    }
+}

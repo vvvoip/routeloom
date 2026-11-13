@@ -1,0 +1,41 @@
+[Unit]
+Description=RouteLoom encrypted packet tunnel
+Wants=network-online.target
+After=network-online.target routeloom-network.service
+Requires=routeloom-network.service
+StartLimitIntervalSec=60
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=routeloom
+Group=routeloom
+WorkingDirectory=/etc/routeloom
+Environment=PATH=/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/routeloom/routeloom-vpn serve /etc/routeloom/server.json
+Restart=on-failure
+RestartSec=3
+KillSignal=SIGINT
+TimeoutStopSec=20
+UMask=0077
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectControlGroups=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+DevicePolicy=closed
+DeviceAllow=/dev/net/tun rw
+TasksMax=64
+MemoryMax=256M
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

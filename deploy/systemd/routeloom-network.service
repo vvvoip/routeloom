@@ -1,0 +1,16 @@
+[Unit]
+Description=RouteLoom owned forwarding and NAT rules
+Wants=network-online.target
+After=network-online.target
+Before=routeloom.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/routeloom/network.nft
+ExecStart=/usr/sbin/sysctl -w net.ipv4.ip_forward=1
+ExecStop=/usr/sbin/nft delete table inet routeloom_filter
+ExecStop=/usr/sbin/nft delete table ip routeloom_nat
+
+[Install]
+WantedBy=multi-user.target

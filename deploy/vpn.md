@@ -1,6 +1,8 @@
 # Dedicated Linux test server
 
-Use a disposable Ubuntu 24.04 VM with a public IP, /dev/net/tun, root/sudo and inbound TCP 9443. One vCPU and 1–2 GB RAM is sufficient for initial functional testing; throughput has not been benchmarked. Keep the existing GitHub Pages website free and independent.
+Use a dedicated Debian 12 or Ubuntu 24.04 test VM with a public IP, /dev/net/tun, root/sudo and inbound TCP 9443. One vCPU and 1–2 GB RAM is sufficient for initial functional testing; throughput has not been benchmarked. Keep the existing GitHub Pages website free and independent.
+
+For the tested Debian service setup, see [Debian deployment](debian.md).
 
 Create profiles as described in [VPN development](../docs/vpn-development.md). Restrict SSH to your administrative IP and preserve provider console access. The commands below change networking: run them only on the dedicated test server, not an existing production gateway.
 
