@@ -1,6 +1,6 @@
 # Platform matrix / 平台能力表
 
-Version 0.2 shares a Rust TCP/UDP policy engine and English/Chinese Flutter settings across all five platforms. This is an experimental alpha, not a complete device-validated release.
+Version 0.4 shares a Rust TCP/UDP policy engine, live traffic dashboard, Auto/Proxy/Direct modes, China/LAN preset and English/Chinese Flutter settings across all five platforms. This is an experimental alpha, not a complete device-validated release.
 
 | Platform | Capture and protection | Distribution | Validation still needed |
 |---|---|---|---|

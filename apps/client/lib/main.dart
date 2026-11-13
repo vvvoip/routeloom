@@ -13,6 +13,9 @@ void main() {
     yield LicenseEntryWithLineBreaks([
       'RouteLoom native dependencies',
     ], await rootBundle.loadString('assets/RUST-LICENSES.txt'));
+    yield LicenseEntryWithLineBreaks([
+      'China and LAN routing preset — V2Fly domain-list-community',
+    ], await rootBundle.loadString('assets/DOMAIN-LIST-LICENSE.txt'));
   });
   runApp(const RouteLoomApp());
 }
@@ -103,6 +106,8 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
     TargetPlatform.windows,
     TargetPlatform.android,
     TargetPlatform.linux,
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
   ].contains(defaultTargetPlatform);
   bool _changingMode = false;
   bool get _active => [

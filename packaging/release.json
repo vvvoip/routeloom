@@ -1,7 +1,7 @@
 {
-  "tag": "v0.3.0-alpha.1",
-  "version": "0.3.0",
-  "debianVersion": "0.3.0~alpha.1",
-  "sequence": 3,
-  "title": "RouteLoom 0.3.0 alpha 1 — live traffic and routing modes"
+  "tag": "v0.4.0-alpha.1",
+  "version": "0.4.0",
+  "debianVersion": "0.4.0~alpha.1",
+  "sequence": 4,
+  "title": "RouteLoom 0.4.0 alpha 1 — Apple traffic dashboard and China routing"
 }

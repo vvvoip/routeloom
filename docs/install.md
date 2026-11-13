@@ -30,6 +30,8 @@ Download routeloom-android.apk. Open it on your Android device and allow install
 This build uses the permanent RouteLoom signing key. The old 0.1 preview used a different key: save your private profile, uninstall that preview once, install 0.2 and reimport. It is not a Play Store release.
 
 ## macOS and iOS/iPadOS
+Already running a personally signed Apple build? Follow the [0.4 upgrade guide](upgrade-apple.md) to preserve your signing projects and saved profiles. Settings displays the installed application version.
+
 The Apple download is a **source signing kit**, not an installable DMG/IPA. Apple VPN entitlements require your signing/provisioning setup. Do not disable SIP/Gatekeeper as a substitute for signing.
 
 On your Mac, install Xcode, Flutter 3.50.0, Node.js and Rust/rustup, sign in to Xcode with your Apple Developer account, unzip the signing kit and run:

@@ -119,6 +119,36 @@ pub fn command(id: u64, command: &str) -> bool {
     }
 }
 
+/// Copies a complete JSON monitoring snapshot; zero means unavailable or insufficient space.
+/// No profile, token, certificate or packet payload is included.
+/// # Safety
+/// output must address capacity writable bytes when non-null.
+#[no_mangle]
+pub unsafe extern "C" fn routeloom_snapshot(id: u64, output: *mut u8, capacity: usize) -> usize {
+    if output.is_null() || capacity == 0 || capacity > 1_048_576 {
+        return 0;
+    }
+    let Some(data) = snapshot(id) else { return 0 };
+    if data.len() > capacity {
+        return 0;
+    }
+    std::ptr::copy_nonoverlapping(data.as_ptr(), output, data.len());
+    data.len()
+}
+
+/// # Safety
+/// input must address len readable bytes when non-null.
+#[no_mangle]
+pub unsafe extern "C" fn routeloom_command(id: u64, input: *const u8, len: usize) -> bool {
+    if input.is_null() || len == 0 || len > 16 {
+        return false;
+    }
+    let Ok(text) = std::str::from_utf8(std::slice::from_raw_parts(input, len)) else {
+        return false;
+    };
+    command(id, text)
+}
+
 #[no_mangle]
 pub extern "C" fn routeloom_status(id: u64) -> u8 {
     engine(id)
@@ -216,11 +246,59 @@ mod tests {
         let first = start_json_in(&profile, protect.clone(), directory.clone());
         assert_ne!(first, 0);
         let entry = engine(first).unwrap();
+        let flow = entry
+            .monitor
+            .begin("example.cn", 443, "tcp", "10.77.0.2:50000");
+        flow.route(
+            "192.0.2.1:443".parse().unwrap(),
+            "direct",
+            Some(1),
+            Some("domain-suffix cn direct"),
+        );
+        flow.connected();
+        flow.upload(128);
+        flow.download(512);
+        drop(flow);
+        // Exercise the caller-owned buffers used by the Apple extension while output is locked.
         let output_lock = entry.engine.lock().unwrap();
         let (tx, rx) = std::sync::mpsc::channel();
         let writer = std::thread::spawn(move || {
             let result = write(first, vec![0; 20]);
             let status = routeloom_status(first);
+            let mut buffer = vec![0_u8; 1_048_576];
+            let size = unsafe { routeloom_snapshot(first, buffer.as_mut_ptr(), buffer.len()) };
+            let snapshot: serde_json::Value = serde_json::from_slice(&buffer[..size]).unwrap();
+            assert_eq!(snapshot["schema"], 1);
+            assert_eq!(snapshot["mode"], "auto");
+            assert!(snapshot["connections"].is_array());
+            let row = &snapshot["connections"][0];
+            assert_eq!(row["host"], "example.cn");
+            assert_eq!(row["route"], "direct");
+            assert_eq!(row["upload"], 128);
+            assert_eq!(row["download"], 512);
+            assert!(!String::from_utf8_lossy(&buffer[..size]).contains(&"a".repeat(64)));
+            let mut tiny = [99_u8; 8];
+            assert_eq!(
+                unsafe { routeloom_snapshot(first, tiny.as_mut_ptr(), tiny.len()) },
+                0
+            );
+            assert_eq!(tiny, [99; 8], "never return truncated JSON");
+            assert_eq!(
+                unsafe { routeloom_snapshot(0, buffer.as_mut_ptr(), buffer.len()) },
+                0
+            );
+            assert_eq!(
+                unsafe { routeloom_snapshot(first, std::ptr::null_mut(), 0) },
+                0
+            );
+            assert!(unsafe { routeloom_command(first, b"clear".as_ptr(), 5) });
+            let size = unsafe { routeloom_snapshot(first, buffer.as_mut_ptr(), buffer.len()) };
+            let cleared: serde_json::Value = serde_json::from_slice(&buffer[..size]).unwrap();
+            assert_eq!(cleared["connections"], serde_json::json!([]));
+            assert_eq!(cleared["upload"], 128, "clear must preserve session totals");
+            assert!(!unsafe { routeloom_command(first, b"invalid".as_ptr(), 7) });
+            assert!(!unsafe { routeloom_command(0, b"clear".as_ptr(), 5) });
+            assert!(!unsafe { routeloom_command(first, std::ptr::null(), 5) });
             tx.send((result, status)).unwrap();
         });
         let result = rx.recv_timeout(Duration::from_secs(1));

@@ -10,6 +10,7 @@ test('release version, update sequence and pinned key agree',async()=>{
  assert.ok(Number.isSafeInteger(release.sequence)&&release.sequence>=2);
  assert.ok(pubspec.includes('version: '+release.version+'+'+release.sequence));
  assert.ok(updates.includes('const currentReleaseSequence = '+release.sequence+';'));
+ assert.ok(updates.includes("const currentReleaseVersion = '"+release.version+"';"));
  assert.ok(release.tag.startsWith('v'+release.version+'-'));
  assert.ok(dartKey.includes(key.publicKey));
 });

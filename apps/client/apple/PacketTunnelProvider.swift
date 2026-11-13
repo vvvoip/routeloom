@@ -7,6 +7,8 @@ import OSLog
 @_silgen_name("routeloom_read") private func engineRead(_ handle: UInt64, _ data: UnsafeMutablePointer<UInt8>, _ capacity: Int) -> Int
 @_silgen_name("routeloom_status") private func engineStatus(_ handle: UInt64) -> UInt8
 @_silgen_name("routeloom_stop") private func engineStop(_ handle: UInt64)
+@_silgen_name("routeloom_snapshot") private func engineSnapshot(_ handle: UInt64, _ data: UnsafeMutablePointer<UInt8>, _ capacity: Int) -> Int
+@_silgen_name("routeloom_command") private func engineCommand(_ handle: UInt64, _ data: UnsafePointer<UInt8>, _ count: Int) -> Bool
 final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let logger = Logger(subsystem: "org.routeloom.vpn", category: "lifecycle")
     private let queue = DispatchQueue(label: "org.routeloom.packet")
@@ -113,8 +115,24 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
     override func handleAppMessage(_ messageData: Data, completionHandler: ((Data?) -> Void)?) {
         queue.async {
-            guard !self.stopped else { completionHandler?(Data("disconnected".utf8)); return }
+            guard messageData.count <= 64, !self.stopped else { completionHandler?(nil); return }
             let message = String(data: messageData, encoding: .utf8)
+            if message == "snapshot" {
+                guard self.handle != 0, !self.paused else { completionHandler?(nil); return }
+                var buffer = [UInt8](repeating: 0, count: 1_048_576)
+                let count = engineSnapshot(self.handle, &buffer, 1_048_576)
+                completionHandler?(count > 0 && count <= buffer.count ? Data(buffer.prefix(count)) : nil)
+                return
+            }
+            if message == "monitor:clear" || message == "monitor:diagnose" {
+                let command = Data(message!.dropFirst("monitor:".count).utf8)
+                let accepted = command.withUnsafeBytes {
+                    engineCommand(self.handle, $0.bindMemory(to: UInt8.self).baseAddress!, command.count)
+                }
+                completionHandler?(accepted ? Data("ok".utf8) : nil)
+                return
+            }
+            guard message == "status" || message == "pause" || message == "resume" else { completionHandler?(nil); return }
             if message == "pause" { self.paused = true; engineStop(self.handle); self.handle = 0; self.reasserting = false }
             if message == "resume" && !self.raw.isEmpty && (self.paused || engineStatus(self.handle) == 2) {
                 engineStop(self.handle)

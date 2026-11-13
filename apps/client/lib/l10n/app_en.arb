@@ -1,5 +1,10 @@
 {
   "@@locale": "en",
+  "chinaPreset": "China and LAN direct",
+  "chinaPresetDescription": "Auto preset: local networks, .cn and listed Chinese websites go direct; other destinations use your server. Disconnect to apply.",
+  "replaceRulesWarning": "Replace this profile’s routing rules with the China and LAN preset and select Auto mode? Your server credentials and other settings are kept.",
+  "applyPreset": "Apply preset",
+  "presetApplied": "Preset saved. Auto mode is selected. Connect to use the new routes.",
   "appTitle": "RouteLoom",
   "tagline": "Your traffic. Your direction.",
   "developmentLabel": "Developer preview",

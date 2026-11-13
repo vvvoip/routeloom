@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'tunnel_test.dart' show fixture;
+import 'traffic_test.dart' show sample;
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,51 @@ import 'package:routeloom/services/profile_store.dart';
 import 'package:routeloom/platforms/tunnel_adapter.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    for (final language in ['en', 'zh']) {
+      testWidgets(
+        'Apple dashboard receives native flows on $platform in $language',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          final messenger =
+              TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+          messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (
+            call,
+          ) async {
+            if (call.method == 'status') return 'connected';
+            if (call.method == 'snapshot') return jsonEncode(sample());
+            throw PlatformException(code: 'unexpected');
+          });
+          addTearDown(() {
+            debugDefaultTargetPlatformOverride = null;
+            messenger.setMockMethodCallHandler(
+              NativeTunnelAdapter.channel,
+              null,
+            );
+          });
+          final store = ProfileStore(vault: TestVault());
+          await store.load();
+          await store.import(TunnelProfile.parse(jsonEncode(fixture())));
+          store.language = language;
+          await store.save();
+          await tester.pumpWidget(RouteLoomApp(store: store));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const Key('routing-mode')), findsOneWidget);
+          await tester.tap(find.text(language == 'en' ? 'Traffic' : '流量').last);
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byKey(const Key('flow-search')));
+          await tester.enterText(
+            find.byKey(const Key('flow-search')),
+            'google',
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('google.com:443'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        },
+      );
+    }
+  }
   testWidgets('cannot connect until a routing-mode save finishes', (
     tester,
   ) async {
@@ -142,6 +188,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('RouteLoom'), findsOneWidget);
+      expect(find.text('Traffic'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     });
