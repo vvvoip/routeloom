@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,6 +6,42 @@ import 'package:routeloom/main.dart';
 import 'package:routeloom/platforms/tunnel_adapter.dart';
 
 void main() {
+  testWidgets(
+    'reopened mobile app can disconnect an existing VPN without reimport',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      var connected = true;
+      messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (
+        call,
+      ) async {
+        if (call.method == 'disconnect') {
+          connected = false;
+          return null;
+        }
+        if (call.method == 'status')
+          return connected ? 'connected' : 'disconnected';
+        throw PlatformException(code: 'unexpected');
+      });
+      addTearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+        messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, null);
+      });
+      await tester.pumpWidget(const RouteLoomApp());
+      await tester.pumpAndSettle();
+      expect(find.text('Connected'), findsOneWidget);
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('connect-button')),
+      );
+      expect(button.onPressed, isNotNull);
+      await tester.tap(find.byKey(const Key('connect-button')));
+      await tester.pumpAndSettle();
+      expect(find.text('Not connected'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('connect requires an imported profile', (tester) async {
     await tester.pumpWidget(const RouteLoomApp());
     await tester.pumpAndSettle();

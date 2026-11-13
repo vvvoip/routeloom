@@ -66,6 +66,18 @@ class TunnelProfile {
         port > 65535) {
       throw const FormatException('A numeric server endpoint is required');
     }
+    final endpointIP = InternetAddress.tryParse(host)!;
+    final endpointBytes = endpointIP.rawAddress;
+    if ((endpointIP.type == InternetAddressType.IPv4 &&
+            endpointBytes[0] == 10 &&
+            endpointBytes[1] == 77 &&
+            endpointBytes[2] == 0) ||
+        (endpointIP.type == InternetAddressType.IPv6 &&
+            endpointBytes[0] == 0xfd &&
+            endpointBytes[1] == 0x77 &&
+            endpointBytes.sublist(2, 8).every((b) => b == 0))) {
+      throw const FormatException('Server overlaps the tunnel subnet');
+    }
     final v4 = InternetAddress.tryParse(value['ipv4'] as String);
     final v6 = InternetAddress.tryParse(value['ipv6'] as String);
     if (v4?.type != InternetAddressType.IPv4 ||
@@ -102,7 +114,9 @@ class TunnelProfile {
     }
     for (final server in dns) {
       final ip = InternetAddress.tryParse(server);
-      if (ip == null || !routes.any((r) => contains(r, ip))) {
+      if (ip == null ||
+          ip == endpointIP ||
+          !routes.any((r) => contains(r, ip))) {
         throw const FormatException('DNS must use a captured route');
       }
     }
@@ -114,6 +128,7 @@ abstract interface class TunnelAdapter {
   Stream<TunnelState> get states;
   Future<void> connect(TunnelProfile profile);
   Future<void> disconnect();
+  Future<void> refresh();
   void dispose();
 }
 
@@ -122,6 +137,8 @@ class NativeTunnelAdapter implements TunnelAdapter {
   final _states = StreamController<TunnelState>.broadcast();
   Timer? _timer;
   bool _disposed = false;
+  bool _starting = false;
+  int _operation = 0;
   @override
   Stream<TunnelState> get states => _states.stream;
   void _emit(TunnelState value) {
@@ -130,42 +147,64 @@ class NativeTunnelAdapter implements TunnelAdapter {
 
   @override
   Future<void> connect(TunnelProfile profile) async {
+    final operation = ++_operation;
+    _timer?.cancel();
+    _starting = true;
     _emit(TunnelState.connecting);
     try {
       await channel.invokeMethod<void>('connect', profile.json);
-      await _poll();
+      if (operation == _operation) {
+        _starting = false;
+        await _poll(operation);
+      }
     } catch (_) {
-      _emit(TunnelState.failed);
-      rethrow;
+      if (operation == _operation) {
+        _starting = false;
+        _emit(TunnelState.failed);
+      }
     }
   }
 
-  Future<void> _poll() async {
-    if (_disposed) return;
+  @override
+  Future<void> refresh() async {
+    if (!_starting) await _poll(_operation);
+  }
+
+  Future<void> _poll(int operation) async {
+    if (_disposed || operation != _operation) return;
     try {
       final status = await channel.invokeMethod<String>('status');
-      if (_disposed) return;
+      if (_disposed || operation != _operation) return;
       final state = TunnelState.values.firstWhere(
         (s) => s.name == status,
         orElse: () => TunnelState.failed,
       );
       _emit(state);
+      _timer?.cancel();
       if (state == TunnelState.connecting ||
           state == TunnelState.connected ||
           state == TunnelState.disconnecting) {
-        _timer?.cancel();
-        _timer = Timer(const Duration(seconds: 1), _poll);
+        _timer = Timer(const Duration(seconds: 1), () => _poll(operation));
       }
+    } on MissingPluginException {
+      _emit(TunnelState.unavailable);
     } catch (_) {
-      _emit(TunnelState.failed);
+      if (operation == _operation) _emit(TunnelState.failed);
     }
   }
 
   @override
   Future<void> disconnect() async {
+    final operation = ++_operation;
+    _starting = false;
+    _timer?.cancel();
     _emit(TunnelState.disconnecting);
-    await channel.invokeMethod<void>('disconnect');
-    await _poll();
+    try {
+      await channel.invokeMethod<void>('disconnect');
+      await _poll(operation);
+    } catch (_) {
+      if (operation == _operation) _emit(TunnelState.failed);
+    }
   }
 
   @override
@@ -180,15 +219,19 @@ class DesktopTunnelAdapter implements TunnelAdapter {
   final _states = StreamController<TunnelState>.broadcast();
   Process? _process;
   bool _disposed = false;
+  int _operation = 0;
+  TunnelState _state = TunnelState.disconnected;
   @override
   Stream<TunnelState> get states => _states.stream;
   void _emit(TunnelState value) {
+    _state = value;
     if (!_disposed) _states.add(value);
   }
 
   @override
   Future<void> connect(TunnelProfile profile) async {
     if (_process != null) throw StateError('Already running');
+    final operation = ++_operation;
     _emit(TunnelState.connecting);
     final suffix = Platform.isWindows ? '.exe' : '';
     final binary =
@@ -199,6 +242,12 @@ class DesktopTunnelAdapter implements TunnelAdapter {
             suffix;
     try {
       final process = await Process.start(binary, ['connect-stdio']);
+      if (_disposed || operation != _operation) {
+        process.stdout.drain<void>();
+        process.stderr.drain<void>();
+        await process.stdin.close();
+        return;
+      }
       _process = process;
       process.stdin.writeln(profile.json);
       await process.stdin.flush();
@@ -226,13 +275,22 @@ class DesktopTunnelAdapter implements TunnelAdapter {
 
   @override
   Future<void> disconnect() async {
+    ++_operation;
     final process = _process;
-    if (process == null) return;
+    if (process == null) {
+      _emit(TunnelState.disconnected);
+      return;
+    }
     _emit(TunnelState.disconnecting);
     // Graceful stdin shutdown lets the helper roll back routes and DNS on Windows too.
     process.stdin.writeln('disconnect');
     await process.stdin.close();
     await process.exitCode.timeout(const Duration(seconds: 15));
+  }
+
+  @override
+  Future<void> refresh() async {
+    _emit(_state);
   }
 
   @override

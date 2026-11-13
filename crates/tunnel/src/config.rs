@@ -30,6 +30,13 @@ impl Profile {
         {
             return Err(invalid("invalid TLS identity"));
         }
+        let endpoint_in_tunnel = match self.endpoint.ip() {
+            IpAddr::V4(ip) => ip.octets()[..3] == [10, 77, 0],
+            IpAddr::V6(ip) => ip.segments()[..4] == [0xfd77, 0, 0, 0],
+        };
+        if endpoint_in_tunnel {
+            return Err(invalid("server endpoint overlaps the tunnel subnet"));
+        }
         validate_identity(&self.device, &self.token)?;
         validate_lease(self.ipv4, self.ipv6)?;
         if self.routes.is_empty()
@@ -40,7 +47,8 @@ impl Profile {
             return Err(invalid("invalid routes or DNS"));
         }
         for ip in &self.dns {
-            if ip.is_unspecified()
+            if *ip == self.endpoint.ip()
+                || ip.is_unspecified()
                 || ip.is_multicast()
                 || !self.routes.iter().any(|r| r.contains(ip))
             {

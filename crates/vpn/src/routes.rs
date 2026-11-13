@@ -199,7 +199,14 @@ pub fn capture_routes(routes: &[IpNet], endpoint: IpAddr) -> Result<Vec<IpNet>> 
     }
     let mut out = vec![];
     for r in ipnet::IpNet::aggregate(&routes.to_vec()) {
-        subtract(r, endpoint, &mut out);
+        // Two /1 routes outrank a physical /0 regardless of interface metrics.
+        if r.prefix_len() == 0 {
+            for half in r.subnets(1).expect("valid default prefix") {
+                subtract(half, endpoint, &mut out);
+            }
+        } else {
+            subtract(r, endpoint, &mut out);
+        }
     }
     if out.len() > 256 {
         return Err(invalid("too many capture routes"));
@@ -217,6 +224,7 @@ mod tests {
                 capture_routes(&["0.0.0.0/0".parse().unwrap(), "::/0".parse().unwrap()], ip)
                     .unwrap();
             assert!(!routes.iter().any(|r| r.contains(&ip)));
+            assert!(routes.iter().all(|r| r.prefix_len() > 0));
             for other in ["1.1.1.1", "10.1.2.3", "2606:4700::1111"] {
                 assert!(routes
                     .iter()

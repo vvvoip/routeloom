@@ -23,6 +23,8 @@ void main() {
       for (final mutation in [
         (Map<String, dynamic> p) => p.remove('ca_pem'),
         (Map<String, dynamic> p) => p['token'] = 'short',
+        (Map<String, dynamic> p) => p['endpoint'] = '10.77.0.1:9443',
+        (Map<String, dynamic> p) => p['dns'] = ['192.0.2.1'],
         (Map<String, dynamic> p) => p['endpoint'] = 'unresolved.example:443',
         (Map<String, dynamic> p) => p['routes'] = ['10.0.0.0/8'],
         (Map<String, dynamic> p) => p['routes'] = ['0.0.0.0/33'],
@@ -69,10 +71,7 @@ void main() {
     messenger.setMockMethodCallHandler(NativeTunnelAdapter.channel, (_) async {
       throw PlatformException(code: 'permission');
     });
-    await expectLater(
-      adapter.connect(TunnelProfile.parse(jsonEncode(fixture()))),
-      throwsA(isA<PlatformException>()),
-    );
+    await adapter.connect(TunnelProfile.parse(jsonEncode(fixture())));
     await Future<void>.delayed(Duration.zero);
     expect(states, [TunnelState.connecting, TunnelState.failed]);
     adapter.dispose();

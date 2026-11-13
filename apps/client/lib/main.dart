@@ -57,7 +57,8 @@ class RouteLoomHome extends StatefulWidget {
   State<RouteLoomHome> createState() => _RouteLoomHomeState();
 }
 
-class _RouteLoomHomeState extends State<RouteLoomHome> {
+class _RouteLoomHomeState extends State<RouteLoomHome>
+    with WidgetsBindingObserver {
   int _selected = 0;
   late final TunnelAdapter _adapter;
   StreamSubscription<TunnelState>? _subscription;
@@ -66,14 +67,22 @@ class _RouteLoomHomeState extends State<RouteLoomHome> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _adapter = createTunnelAdapter();
     _subscription = _adapter.states.listen((value) {
       if (mounted) setState(() => _state = value);
     });
+    unawaited(_adapter.refresh());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_adapter.refresh());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _subscription?.cancel();
     _adapter.dispose();
     super.dispose();
@@ -159,7 +168,10 @@ class _RouteLoomHomeState extends State<RouteLoomHome> {
                 FilledButton.icon(
                   key: const Key('connect-button'),
                   onPressed:
-                      _profile == null || _state == TunnelState.disconnecting
+                      (_profile == null &&
+                              _state != TunnelState.connected &&
+                              _state != TunnelState.connecting) ||
+                          _state == TunnelState.disconnecting
                       ? null
                       : _toggle,
                   icon: const Icon(Icons.power_settings_new),
