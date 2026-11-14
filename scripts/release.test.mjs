@@ -13,4 +13,10 @@ test('release version, update sequence and pinned key agree',async()=>{
  assert.ok(updates.includes("const currentReleaseVersion = '"+release.version+"';"));
  assert.ok(release.tag.startsWith('v'+release.version+'-'));
  assert.ok(dartKey.includes(key.publicKey));
+ for (const platform of ['macos','ios']) {
+  const plist=await readFile(`apps/client/${platform}/PacketTunnel/Info.plist`,'utf8');
+  const value=key=>plist.match(new RegExp(`<key>${key}</key>\\s*<string>([^<]+)</string>`))?.[1];
+  assert.equal(value('CFBundleShortVersionString'),release.version,`${platform} extension release version`);
+  assert.equal(value('CFBundleVersion'),String(release.sequence),`${platform} extension build number`);
+ }
 });

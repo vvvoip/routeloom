@@ -2,6 +2,9 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 // Deterministic one-time project wiring; shared Swift is compiled into both Apple apps.
 const root = path.resolve(import.meta.dirname, '../apps/client');
+const versionMatch=(await fs.readFile(path.join(root,'pubspec.yaml'),'utf8')).match(/^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$/m);
+if(!versionMatch)throw Error('Missing client release version');
+const [,clientVersion,clientBuild]=versionMatch;
 for (const os of ['ios','macos']) {
  const file=path.join(root,os,'Runner.xcodeproj/project.pbxproj');
  let text=(await fs.readFile(file,'utf8')).replaceAll('\r\n','\n');
@@ -41,7 +44,7 @@ for (const os of ['ios','macos']) {
  const configs=[];
  for(const [i,name] of ['Debug','Release','Profile'].entries()) {
    const id='A1100000000000000000002'+i; configs.push(id);
-   obj(id,'isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = YES; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; CODE_SIGN_ENTITLEMENTS = PacketTunnel/PacketTunnel.entitlements; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PacketTunnel/Info.plist; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",); MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = org.routeloom.routeloom.PacketTunnel; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0; SWIFT_OPTIMIZATION_LEVEL = '+(name==='Debug'?'"-Onone"':'"-O"')+'; '+(mac?'SDKROOT = macosx; MACOSX_DEPLOYMENT_TARGET = 12.0; ENABLE_APP_SANDBOX = YES;':'SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 15.0; TARGETED_DEVICE_FAMILY = "1,2";')+' }; name = '+name+';');
+   obj(id,'isa = XCBuildConfiguration; buildSettings = {APPLICATION_EXTENSION_API_ONLY = YES; CLANG_ENABLE_MODULES = YES; CODE_SIGN_STYLE = Automatic; CODE_SIGN_ENTITLEMENTS = PacketTunnel/PacketTunnel.entitlements; CURRENT_PROJECT_VERSION = '+clientBuild+'; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = PacketTunnel/Info.plist; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks", "@executable_path/../../Frameworks",); MARKETING_VERSION = '+clientVersion+'; PRODUCT_BUNDLE_IDENTIFIER = org.routeloom.routeloom.PacketTunnel; PRODUCT_NAME = "$(TARGET_NAME)"; SKIP_INSTALL = YES; SWIFT_VERSION = 5.0; SWIFT_OPTIMIZATION_LEVEL = '+(name==='Debug'?'"-Onone"':'"-O"')+'; '+(mac?'SDKROOT = macosx; MACOSX_DEPLOYMENT_TARGET = 12.0; ENABLE_APP_SANDBOX = YES;':'SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 15.0; TARGETED_DEVICE_FAMILY = "1,2";')+' }; name = '+name+';');
  }
  obj(ids.configlist,'isa = XCConfigurationList; buildConfigurations = ('+configs.join(',')+',); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;');
  editObject(runner,body=>body.replace('buildPhases = (','buildPhases = (\n\t\t\t\t'+ids.embed+',').replace('dependencies = (','dependencies = (\n\t\t\t\t'+ids.dependency+','));
