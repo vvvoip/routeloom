@@ -64,7 +64,7 @@ ROUTELOOM_UPDATE
 3. 在 **macOS** 工作区检查 **PacketTunnel → Signing & Capabilities → App Sandbox**，同时勾选 **Incoming Connections (Server)** 和 **Outgoing Connections (Client)**。必须在 PacketTunnel 扩展上启用，仅在 Runner 上启用不够。保留原来的团队和 Bundle ID。在 **Product → Scheme → Edit Scheme → Run → Info** 中选择 **Release**，取消 **Debug executable**，运行目标选 **My Mac**，按 **⌘R**。
 4. 在 **iOS** 工作区选择已连接且解锁的 iPhone。Runner 和 PacketTunnel 保留原团队和 Bundle ID，使用同样的 Release 运行设置，按 **⌘R** 覆盖安装，不要先删除原应用。
 
-Mac 测试成功后，如果平时启动的是 `/Applications` 中的副本，先退出它，在 Finder 中用新生成的 `apps/client/build/macos/Build/Products/Release/routeloom.app` 替换旧副本，再从“应用程序”启动，避免继续打开旧版本。
+Mac 测试成功后，找到此次 Xcode 成功编译生成的应用：展开 **Products**，右键点击 **routeloom.app**，选择 **Show in Finder**。Xcode 可能使用 DerivedData，而非 Flutter 的 `apps/client/build` 目录，因此不能假定后者中的副本就是最新版。如果平时启动的是 `/Applications` 中的副本，先断开连接、停止 Xcode 运行会话并退出 RouteLoom，再在 Finder 中用刚编译的应用替换旧副本，保留原名称，然后从“应用程序”启动。
 
 ### 界面已更新，但流量数据不可用
 

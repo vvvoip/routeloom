@@ -64,7 +64,7 @@ The shell setup file `.cargo/env` is optional. The block supports the normal/cus
 3. In the **macOS** workspace, check **PacketTunnel → Signing & Capabilities → App Sandbox**: both **Incoming Connections (Server)** and **Outgoing Connections (Client)** must be checked. This is required on the extension, even when already enabled on Runner. Keep your existing team and bundle IDs. Choose **Product → Scheme → Edit Scheme → Run → Info → Build Configuration: Release**, uncheck **Debug executable**, select **My Mac**, then **⌘R**.
 4. In the **iOS** workspace, select your connected, unlocked iPhone. Keep the same team and IDs on **Runner and PacketTunnel**. Choose the same Release Run configuration, then **⌘R**. Xcode installs over the existing app. Do not delete the old app first.
 
-After testing the Mac build, if you normally launch a separate copy from `/Applications`, quit it and replace it in Finder with the newly built `apps/client/build/macos/Build/Products/Release/routeloom.app`. Use the same app name; do not accidentally relaunch the old copy. Launch from Applications after replacing it.
+After testing the Mac build, locate the app produced by that successful Xcode build: expand **Products**, right-click **routeloom.app**, and choose **Show in Finder**. Xcode may build under DerivedData rather than Flutter's `apps/client/build` directory, so do not assume an app in the latter folder is current. If you normally launch a separate copy from `/Applications`, disconnect, stop the Run session and quit RouteLoom, then replace that copy in Finder with the newly built app. Keep the same app name and launch from Applications after replacing it.
 
 ### New interface, but Traffic is unavailable
 
