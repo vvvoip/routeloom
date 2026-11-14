@@ -36,6 +36,10 @@ git restore --source=v0.4.0-alpha.1 --worktree -- \
   apps/client/apple apps/client/lib apps/client/assets apps/client/test \
   apps/client/pubspec.yaml apps/client/pubspec.lock \
   scripts/build-native.sh scripts/collect-licenses.mjs scripts/bundle-client-licenses.mjs
+for platform in macos ios; do
+  /usr/libexec/PlistBuddy -c 'Set :CFBundleShortVersionString 0.4.0' "apps/client/$platform/PacketTunnel/Info.plist"
+  /usr/libexec/PlistBuddy -c 'Set :CFBundleVersion 4' "apps/client/$platform/PacketTunnel/Info.plist"
+done
 bash scripts/build-native.sh macos
 bash scripts/build-native.sh ios
 node scripts/collect-licenses.mjs .local/dependency-licenses
@@ -60,7 +64,13 @@ ROUTELOOM_UPDATE
 3. 在 **macOS** 工作区检查 **PacketTunnel → Signing & Capabilities → App Sandbox**，同时勾选 **Incoming Connections (Server)** 和 **Outgoing Connections (Client)**。必须在 PacketTunnel 扩展上启用，仅在 Runner 上启用不够。保留原来的团队和 Bundle ID。在 **Product → Scheme → Edit Scheme → Run → Info** 中选择 **Release**，取消 **Debug executable**，运行目标选 **My Mac**，按 **⌘R**。
 4. 在 **iOS** 工作区选择已连接且解锁的 iPhone。Runner 和 PacketTunnel 保留原团队和 Bundle ID，使用同样的 Release 运行设置，按 **⌘R** 覆盖安装，不要先删除原应用。
 
-Mac 测试成功后，如果平时启动的是 `/Applications` 中的副本，先退出它，在 Finder 中用新生成的 `apps/client/build/macos/Build/Products/Release/routeloom.app` 替换旧副本，再从“应用程序”启动，避免继续打开旧版本。
+Mac 测试成功后，找到此次 Xcode 成功编译生成的应用：展开 **Products**，右键点击 **routeloom.app**，选择 **Show in Finder**。Xcode 可能使用 DerivedData，而非 Flutter 的 `apps/client/build` 目录，因此不能假定后者中的副本就是最新版。如果平时启动的是 `/Applications` 中的副本，先断开连接、停止 Xcode 运行会话并退出 RouteLoom，再在 Finder 中用刚编译的应用替换旧副本，保留原名称，然后从“应用程序”启动。
+
+### 界面已更新，但流量数据不可用
+
+应用界面和 PacketTunnel 是两个独立的可执行文件。系统仍使用旧扩展，或原生编译未完成时，新界面可能无法取得监控数据。最初的 0.4 签名包也保留了扩展的旧版本信息 `0.1.0`/`1`；上面的命令只修正这两个字段，保留钥匙串组等设置。仅凭版本标签不能确定正在运行的代码。
+
+先恢复直连互联网，停止 Xcode 运行会话并退出 RouteLoom。在正确的 macOS 工作区选择 **Product → Clean Build Folder**，再以 Release 配置编译 Runner，确认 PacketTunnel 成功编译并嵌入。出现编译错误后，不要选择运行旧的成功构建。先用代理模式测试，再应用自动分流规则。如果系统仍使用另一份应用，可用 `pgrep -fl PacketTunnel` 和 `pluginkit -m -A -D -v -i YOUR_BUNDLE_ID.PacketTunnel` 检查。不要粘贴未经筛选的扩展 VPN 状态，旧版输出可能含有私有配置。
 
 ## 应用分流策略并验证
 
