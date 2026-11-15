@@ -54,5 +54,6 @@ jobs:
         with:
           name: apple-store-${{ matrix.platform }}-check-report
           path: .local/apple-store-*/*-archive-report.json
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
