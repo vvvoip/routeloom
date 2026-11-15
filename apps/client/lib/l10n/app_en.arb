@@ -148,5 +148,14 @@
   "seconds": "s",
   "currentMode": "Current mode",
   "capturedTraffic": "Captured traffic",
-  "previewLabel": "Alpha"
+  "previewLabel": "Alpha",
+  "appleStoreUpdates": "Updates are managed by Apple. Open TestFlight for beta updates, or the App Store for App Store installations.",
+  "vpnDataTitle": "Before you connect",
+  "vpnDataRouting": "RouteLoom sends traffic selected for proxying through the server in your profile. That server processes your connection IP, requested destinations, DNS queries and forwarded traffic. Direct routes use your local network. Only connect to a server operator you trust; its data handling may differ from the app's.",
+  "vpnDataStorage": "The client stores profiles in protected system storage and keeps an encrypted DNS mapping cache on this device. Recent connection metadata stays in memory for the traffic dashboard. The client does not record packet contents or include advertising or analytics services.",
+  "vpnDataServices": "Requested websites and DNS services receive the traffic needed to serve your requests. Test connection contacts api.ipify.org when you run it. Review the publisher's privacy policy before connecting.",
+  "publisherPrivacyPolicy": "Read privacy policy",
+  "privacyPolicyUnavailable": "This build has no configured privacy policy. You cannot start a new connection from this app; contact the publisher for a configured build.",
+  "privacyPolicyOpenFailed": "The privacy policy could not be opened. Check your internet connection and try again.",
+  "agreeAndConnect": "Agree and connect"
 }

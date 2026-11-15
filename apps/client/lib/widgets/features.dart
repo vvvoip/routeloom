@@ -7,6 +7,7 @@ import '../services/profile_store.dart';
 import '../services/routing_presets.dart';
 import '../services/protection.dart';
 import '../services/updates.dart';
+import '../services/distribution.dart';
 import '../platforms/tunnel_adapter.dart';
 
 class FeaturePanel extends StatefulWidget {
@@ -37,8 +38,10 @@ class _FeaturePanelState extends State<FeaturePanel> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(hours: 6), (_) => _automatic());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _automatic());
+    if (!appleStoreDistribution) {
+      _timer = Timer.periodic(const Duration(hours: 6), (_) => _automatic());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _automatic());
+    }
   }
 
   @override
@@ -77,6 +80,7 @@ class _FeaturePanelState extends State<FeaturePanel> {
   }
 
   Future<void> _automatic() async {
+    if (appleStoreDistribution) return;
     final store = widget.store;
     if (!store.available || !store.automaticUpdates) return;
     if (store.lastUpdateCheck != null &&
@@ -87,7 +91,7 @@ class _FeaturePanelState extends State<FeaturePanel> {
   }
 
   Future<void> _check() async {
-    if (_checking) return;
+    if (appleStoreDistribution || _checking) return;
     setState(() => _checking = true);
     final t = AppLocalizations.of(context);
     try {
@@ -384,20 +388,24 @@ class _FeaturePanelState extends State<FeaturePanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(t.automaticUpdates),
-                  subtitle: Text(t.updateDescription),
-                  value: store.automaticUpdates,
-                  onChanged: _busy
-                      ? null
-                      : (v) => _run(() async {
-                          await store.setAutomaticUpdates(v);
-                        }),
-                ),
+                if (appleStoreDistribution) Text(t.appleStoreUpdates),
+                if (!appleStoreDistribution)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(t.automaticUpdates),
+                    subtitle: Text(t.updateDescription),
+                    value: store.automaticUpdates,
+                    onChanged: _busy
+                        ? null
+                        : (v) => _run(() async {
+                            await store.setAutomaticUpdates(v);
+                          }),
+                  ),
                 if (_updateMessage != null) Text(_updateMessage!),
                 Text('RouteLoom $currentReleaseVersion'),
-                if (Platform.isIOS || Platform.isMacOS) Text(t.appleUpdates),
+                if (!appleStoreDistribution &&
+                    (Platform.isIOS || Platform.isMacOS))
+                  Text(t.appleUpdates),
                 TextButton(
                   onPressed: () => showLicensePage(
                     context: context,
@@ -406,10 +414,11 @@ class _FeaturePanelState extends State<FeaturePanel> {
                   ),
                   child: Text(t.licenses),
                 ),
-                TextButton(
-                  onPressed: _checking ? null : _check,
-                  child: Text(_checking ? t.checkingUpdates : t.checkUpdates),
-                ),
+                if (!appleStoreDistribution)
+                  TextButton(
+                    onPressed: _checking ? null : _check,
+                    child: Text(_checking ? t.checkingUpdates : t.checkUpdates),
+                  ),
                 if (_download != null) ...[
                   Text(t.updateDownloaded),
                   SelectableText(_download!.path),

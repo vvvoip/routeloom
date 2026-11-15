@@ -148,5 +148,14 @@
   "seconds": "秒",
   "currentMode": "当前模式",
   "capturedTraffic": "接管流量",
-  "previewLabel": "Alpha 测试版"
+  "previewLabel": "Alpha 测试版",
+  "appleStoreUpdates": "更新由 Apple 管理。测试版请在 TestFlight 中更新，App Store 安装的版本请在 App Store 中更新。",
+  "vpnDataTitle": "连接前请了解",
+  "vpnDataRouting": "RouteLoom 将需要代理的流量发送到配置中的服务器。该服务器会处理你的连接 IP、访问目标、DNS 查询及转发流量。直连流量通过本地网络发送。请仅连接你信任的服务器运营者，其数据处理方式可能与本应用不同。",
+  "vpnDataStorage": "客户端将配置保存在系统保护的存储中，并在本设备上保存加密的 DNS 映射缓存。流量面板使用的近期连接信息仅保留在内存中。客户端不记录数据包内容，也未集成广告或分析服务。",
+  "vpnDataServices": "你访问的网站和 DNS 服务会收到处理请求所需的流量。手动运行连接测试时，应用会访问 api.ipify.org。连接前请阅读发布者的隐私政策。",
+  "publisherPrivacyPolicy": "阅读隐私政策",
+  "privacyPolicyUnavailable": "此版本尚未配置隐私政策，无法从应用中发起新的连接。请联系发布者获取已配置的版本。",
+  "privacyPolicyOpenFailed": "无法打开隐私政策，请检查互联网连接后重试。",
+  "agreeAndConnect": "同意并连接"
 }
