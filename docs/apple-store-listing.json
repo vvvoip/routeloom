@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 1,
+  "status": "Publisher metadata draft — not uploaded, submitted or approved by Apple",
+  "usage": "Copy the appropriate locale and channel fields into App Store Connect after owner review. This is not an App Store Connect API request and does not change availability.",
+  "version": "0.4.0",
+  "publisher": {
+    "legalName": "Hong Kong Tiger Telecommunications Limited",
+    "supportEmail": "vvvoip888@gmail.com",
+    "privacyPolicyUrls": {
+      "en-US": "https://vvvoip.github.io/routeloom/en/privacy/",
+      "zh-Hans": "https://vvvoip.github.io/routeloom/zh-CN/privacy/"
+    },
+    "supportUrls": {
+      "en-US": "https://vvvoip.github.io/routeloom/en/support/",
+      "zh-Hans": "https://vvvoip.github.io/routeloom/zh-CN/support/"
+    }
+  },
+  "productionDistribution": {
+    "platforms": ["iOS / iPadOS", "macOS"],
+    "channel": "App Store / Mac App Store after review and release",
+    "intendedTerritories": ["Hong Kong", "Singapore"],
+    "addFutureTerritoriesAutomatically": false,
+    "appliedInAppStoreConnect": false,
+    "availabilityBasis": "The customer's Apple Account country or region determines their App Store storefront; physical location or source IP is not the storefront selection.",
+    "legalClearanceClaimed": false,
+    "storeLinks": {"ios": null, "macos": null}
+  },
+  "betaDistribution": {
+    "channel": "TestFlight",
+    "plannedAccess": "Invited beta testers after the required Apple review",
+    "feedbackEmail": "vvvoip888@gmail.com",
+    "publicLink": null,
+    "publicLinkCountryRestrictionClaimed": false,
+    "note": "The intended App Store territory selections are not a claimed country restriction on TestFlight invitations or public links. No public beta installation link is available in this draft."
+  },
+  "localizations": {
+    "en-US": {
+      "appStore": {
+        "name": "RouteLoom",
+        "subtitle": "Your traffic. Your direction.",
+        "keywords": "VPN,proxy,routing,self-hosted,network,traffic",
+        "promotionalText": "Choose Auto, Proxy or Direct routing for your own RouteLoom server. Inspect captured connections and test the route and exit IP of an HTTPS request.",
+        "description": "Connect to a RouteLoom server managed by you or your organization, and choose how captured traffic is routed. A private device profile is required; the app does not include a shared public VPN account.\n\nChoose Auto to follow your routing rules, Proxy to send captured traffic through your server, or Direct to use your local network. The China and LAN direct preset routes local networks and listed Chinese websites directly while using your server for other destinations. You can customize the rules for your needs.\n\nThe traffic dashboard shows captured TCP and UDP connections, destinations, routing decisions and transferred bytes. Run the connection test to check the route and public exit IP for one HTTPS request.\n\nProfiles use protected system storage. Recent connection metadata is kept in memory for the dashboard. An encrypted DNS mapping journal persists on the device without automatic time-based expiry. Your selected server and destination services process traffic to provide the connection. Review the in-app data declaration and publisher privacy policy before connecting, and use a server operator you trust.\n\nIncludes English and Simplified Chinese. Published by Hong Kong Tiger Telecommunications Limited. For support, contact vvvoip888@gmail.com.",
+        "privacyPolicyUrl": "https://vvvoip.github.io/routeloom/en/privacy/",
+        "supportUrl": "https://vvvoip.github.io/routeloom/en/support/",
+        "marketingUrl": "https://vvvoip.github.io/routeloom/en/"
+      },
+      "testFlight": {
+        "betaAppDescription": "RouteLoom beta connects to a server managed by you or your organization using a private device profile. Help validate Auto, Proxy and Direct routing, captured-traffic records and the HTTPS exit-IP test on iPhone, iPad and Mac. This is beta software; connection, monitoring, network-change and update behavior still require device testing.\n\nRead the publisher privacy policy before use. Profiles use protected system storage; recent connection metadata stays in memory, while an encrypted DNS mapping journal persists on the device without automatic time-based expiry. Your selected server has its own data-handling role.\n\nPublished by Hong Kong Tiger Telecommunications Limited. Send beta feedback to vvvoip888@gmail.com without private profiles, tokens or browsing-history screenshots.",
+        "whatToTest": "Use a dedicated private device profile supplied by your server administrator. Test connecting and disconnecting; Auto, Proxy and Direct routes; traffic records and the exit-IP test; local-network access; switching Wi-Fi/mobile networks; sleep/wake and reconnect; and updating over an existing installation while retaining its profile. Confirm the privacy disclosure appears before the first app-initiated connection and that updates are handled through TestFlight. Include device model, OS version, app version, mode and a short reproduction in feedback to vvvoip888@gmail.com. Do not send tokens, private profiles or browsing-history screenshots.",
+        "feedbackEmail": "vvvoip888@gmail.com",
+        "privacyPolicyUrl": "https://vvvoip.github.io/routeloom/en/privacy/"
+      }
+    },
+    "zh-Hans": {
+      "appStore": {
+        "name": "RouteLoom",
+        "subtitle": "连接自托管服务器，按规则分流",
+        "keywords": "VPN,网络代理,规则分流,自托管,流量监控",
+        "promotionalText": "连接自己的 RouteLoom 服务器，选择自动、代理或直连模式。查看被接管的连接，并测试一次 HTTPS 请求的实际路径和公网出口 IP。",
+        "description": "连接由你或你的组织管理的 RouteLoom 服务器，选择被接管流量的路由方式。使用前需要导入专属设备配置；应用不提供共享的公共 VPN 账号。\n\n自动模式按规则分流，代理模式将被接管流量发送到服务器，直连模式使用本地网络。“中国网站和局域网直连”预设将局域网和列表中的中国网站直连，其他目标通过服务器访问，也可按需修改规则。\n\n流量面板显示被接管的 TCP、UDP 连接、访问目标、路由决策及传输字节数。运行连接测试，可检查一次 HTTPS 请求的实际路径和公网出口 IP。\n\n配置保存在系统保护的存储中。近期连接元数据保留在内存中供流量面板显示；加密的 DNS 映射日志会持久保存在设备上，没有按时间自动到期的机制。所选服务器和目标服务会处理提供连接所需的流量。连接前请阅读应用内的数据说明及发布者隐私政策，并仅使用你信任的服务器运营者。\n\n支持英语和简体中文。发布者：Hong Kong Tiger Telecommunications Limited。支持邮箱：vvvoip888@gmail.com。",
+        "privacyPolicyUrl": "https://vvvoip.github.io/routeloom/zh-CN/privacy/",
+        "supportUrl": "https://vvvoip.github.io/routeloom/zh-CN/support/",
+        "marketingUrl": "https://vvvoip.github.io/routeloom/zh-CN/"
+      },
+      "testFlight": {
+        "betaAppDescription": "RouteLoom 测试版使用专属设备配置，连接由你或你的组织管理的服务器。请协助验证 iPhone、iPad 和 Mac 上的自动、代理、直连分流，被接管流量的记录，以及 HTTPS 出口 IP 测试。本版本属于测试软件，连接、监控、网络切换和升级行为仍需真机测试。\n\n使用前请阅读发布者隐私政策。配置使用系统保护的存储，近期连接元数据保留在内存中；加密的 DNS 映射日志会持久保存在设备上，没有按时间自动到期的机制。所选服务器也会参与数据处理。\n\n发布者：Hong Kong Tiger Telecommunications Limited。请将测试反馈发送至 vvvoip888@gmail.com，不要发送私有配置、令牌或含浏览记录的截图。",
+        "whatToTest": "使用服务器管理员提供的专属测试设备配置。测试连接与断开、自动/代理/直连分流、流量记录及出口 IP 测试、局域网访问、Wi-Fi/移动网络切换、睡眠唤醒与重连，以及覆盖更新后配置是否保留。确认首次从应用内发起连接前会显示隐私数据说明，且更新由 TestFlight 处理。请向 vvvoip888@gmail.com 提供设备型号、系统版本、应用版本、模式和简短复现步骤，不要发送令牌、私有配置或含浏览记录的截图。",
+        "feedbackEmail": "vvvoip888@gmail.com",
+        "privacyPolicyUrl": "https://vvvoip.github.io/routeloom/zh-CN/privacy/"
+      }
+    }
+  },
+  "ownerReview": {
+    "readyForSubmission": false,
+    "outstandingActions": [
+      "Confirm the Apple organization account and app records match the publisher and selected bundle identifiers.",
+      "Verify the published English and Chinese privacy/support pages and approve their descriptions of client, server, cloud-provider and support data practices.",
+      "Complete App Store Connect privacy, age-rating and encryption/export questions accurately; this draft supplies no legal classification or clearance.",
+      "Prepare final platform screenshots and verify the RouteLoom artwork.",
+      "Apply only Hong Kong and Singapore availability in App Store Connect, leaving automatic future territories disabled, then verify the saved settings.",
+      "Validate signed archives and complete physical-device, update and network-transition tests.",
+      "Supply a dedicated revocable review profile and reviewer contact information privately in App Store Connect; do not commit credentials here.",
+      "Upload the signed builds, resolve processing issues and obtain the required TestFlight/App Store reviews before publishing installation links."
+    ]
+  },
+  "references": {
+    "appInformation": "https://developer.apple.com/help/app-store-connect/reference/app-information/app-information",
+    "versionMetadata": "https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information",
+    "availability": "https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/manage-availability-for-your-app-on-the-app-store",
+    "testFlight": "https://developer.apple.com/testflight/"
+  }
+}

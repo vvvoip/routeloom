@@ -9,12 +9,13 @@ const output=path.join(directory,'dist');
 await mkdir(output,{recursive:true});
 for(const lang of ['en','zh-CN']) {
  const t=JSON.parse(await readFile(path.join(directory,'locales',lang+'.json'),'utf8'));
- for(const docs of [false,true]) {
-  const dest=path.join(output,lang,docs?'docs':'');
+ const information=JSON.parse(await readFile(path.join(directory,'content',lang+'.json'),'utf8'));
+ for(const kind of ['home','docs','privacy','support']) {
+  const dest=path.join(output,lang,kind==='home'?'':kind);
   await mkdir(dest,{recursive:true});
-  await writeFile(path.join(dest,'index.html'),renderPage(t,lang,base,docs));
+  await writeFile(path.join(dest,'index.html'),renderPage(t,lang,base,kind,information));
  }
- if(lang==='en') await writeFile(path.join(output,'index.html'),renderPage(t,lang,base));
+ if(lang==='en') await writeFile(path.join(output,'index.html'),renderPage(t,lang,base,'home',information));
 }
 await cp(path.join(directory,'assets'),path.join(output,'assets'),{recursive:true});
 await writeFile(path.join(output,'.nojekyll'),'');

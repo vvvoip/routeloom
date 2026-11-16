@@ -10,12 +10,20 @@ GitHub 上的 Apple ZIP 仍是源码签名包。此次修改没有发布公开�
 
 开发版已在所有者的 Mac 和 iPhone 上成功连接，但更新后的 Mac 流量面板与连接测试仍待真机确认。睡眠唤醒、切换网络、覆盖升级以及在另一位客户设备上的安装也需验证后才能公开发布。准备正式发布时，请保留现有个人测试安装。
 
+## 发布者信息与首批计划市场
+
+发布者为 **Hong Kong Tiger Telecommunications Limited**，客户支持及测试反馈邮箱为 **vvvoip888@gmail.com**。为商店资料准备的网址包括[英文隐私政策](https://vvvoip.github.io/routeloom/en/privacy/)、[简体中文隐私政策](https://vvvoip.github.io/routeloom/zh-CN/privacy/)，以及对应的[英文支持](https://vvvoip.github.io/routeloom/en/support/)和[中文支持](https://vvvoip.github.io/routeloom/zh-CN/support/)页面。签名或提交前，请确认页面已公开可访问，且准确描述实际发布版本。
+
+首批公开 App Store 发布地区计划为**仅香港和新加坡**，并关闭未来新增地区的自动上架。**这些选项尚未在 App Store Connect 中设置**。这是发布计划，不代表 Apple 批准或已取得法律许可。App Store 可用性依据客户 **Apple 账户的国家或地区（商店地区）**，而非实际所在位置或来源 IP。[Apple 可用地区说明](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/manage-availability-for-your-app-on-the-app-store)
+
+请使用 [apple-store-listing.json](apple-store-listing.json) 中分别准备的正式商店和测试版文案。该文件是英语（`en-US`）及简体中文（`zh-Hans`）元数据草稿，不会自动上传，也不是 App Store Connect API 请求。测试计划是在完成相应审核后，通过 TestFlight 邀请测试者；不要将正式商店地区选择描述为 TestFlight 邀请或公开链接的国家限制。
+
 ## 发布账户与应用设置
 
 1. 确认发布团队以**组织**身份加入 Apple Developer Program。Apple 的 VPN 审核规则要求组织账户；个人开发证书能在自己的设备运行，并不代表满足公开发布条件。如果目前是个人账户，请先向 Apple 处理组织注册问题，再承诺公开分发 VPN 应用。[审核规则 5.4](https://developer.apple.com/app-store/review/guidelines/#vpn-apps)
 2. 选定发布者拥有的固定 Bundle ID，并建立匹配的 App Store Connect 应用记录和平台条目。Runner 与其 `.PacketTunnel` 扩展必须使用同一团队，并正确配置 Network Extensions 与钥匙串权限。检查**两个平台上的两个 target**的签名和描述文件。在 Xcode 分发流程中使用对应的 Apple 分发签名资产。[配置 Network Extensions](https://developer.apple.com/documentation/xcode/configuring-network-extensions/)
 3. 更新现有安装时，保持原团队、Bundle ID 和钥匙串组。如果从个人团队迁移到组织团队，可能产生独立应用身份；不能假定新应用能读取旧应用的已保存配置。请保留私有配置备份，明确安排迁移。
-4. 准备真实的英语和简体中文商店介绍、截图、支持信息、年龄分级及隐私信息。请发布者确认打包的 RouteLoom 图标，并准备商店要求的截图。发布者必须提供并确认自己的身份、联系方式、实际数据处理方式和隐私政策网址；仓库示例不等于已完成的隐私政策。成功生成归档不代表已经具备提交审核的全部条件。
+4. 审阅英语和简体中文元数据草稿，确认打包的 RouteLoom 图标，准备真实商店截图、年龄分级答案和隐私信息。在 App Store Connect 确认上述发布者身份及支持/隐私网址。发布者必须确认文案与实际发布版本的数据处理方式一致；草稿不会自动回答隐私问卷。成功生成归档不代表已经具备提交审核的全部条件。
 
 签名凭据由发布者保管。不要将 Apple 密码、签名私钥、App Store Connect API 私钥或私有服务器配置粘贴到聊天、公开 issue 或 GitHub 仓库。本地使用 Xcode 签名，无需将这些凭据导出到 CI。
 
@@ -25,7 +33,7 @@ GitHub 上的 Apple ZIP 仍是源码签名包。此次修改没有发布公开�
 
 根据实际实现及拟发布地区回答 App Store Connect 的加密问题。RouteLoom 包含 Rust TLS/加密库和本地加密 DNS 缓存，并非仅调用操作系统 HTTPS API。未确认符合条件前，不要填入 `ITSAppUsesNonExemptEncryption = false`。是否需要文件或分类，应由发布者核实自身义务后确定。[Apple 加密出口合规说明](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/)
 
-选择发布地区，并按 Apple 对相应地区的要求提供许可信息。本指南不判断当地许可资格。通过私有审核字段向 App Review 提供独立、可用的审核配置和操作说明。使用可撤销的专用测试凭据，审核期间保持测试服务器可用；不要将凭据放入发布归档或公开文档。[审核准备](https://developer.apple.com/app-store/review/)
+设置计划中的香港和新加坡 App Store 发布地区，并按 Apple 对这些地区的要求提供许可信息。本指南不判断当地许可资格。通过私有审核字段向 App Review 提供独立、可用的审核配置和操作说明。使用可撤销的专用测试凭据，审核期间保持测试服务器可用；不要将凭据放入发布归档或公开文档。[审核准备](https://developer.apple.com/app-store/review/)
 
 ## 更新已有个性化签名的源码目录
 
@@ -71,11 +79,11 @@ ROUTELOOM_STORE_UPDATE
 
 Mac 目标在生成签名归档前，应先在 Xcode 的 **Runner → General → App Category** 设置应用类别（此客户端适合 Utilities／工具）。这会将 `LSApplicationCategoryType` 写入本地应用配置。未签名 CI 可以在未设置类别时完成编译，但这不代表 Mac App Store 所需元数据已经齐全。
 
-使用更新后的源码，并安装 Xcode、Flutter、Rust/rustup 和 Node.js。先在 Xcode 登录发布团队，为 Runner 与 PacketTunnel 配置签名。将发布者确认的隐私政策发布到真实、公开可访问的 HTTPS 网址，并将下面占位符替换为该网址；私有草稿或示例政策不能用于发布。构建命令保留已有项目身份。在仓库任意子目录中执行：
+使用更新后的源码，并安装 Xcode、Flutter、Rust/rustup 和 Node.js。先在 Xcode 登录发布团队，为 Runner 与 PacketTunnel 配置签名。确认下面发布者已确认的英文隐私政策网址公开可访问，且可切换到中文政策。私有草稿或尚未发布的页面不能用于发布。构建命令保留已有项目身份。在仓库任意子目录中执行：
 
 ```sh
 cd "$(git rev-parse --show-toplevel)"
-export ROUTELOOM_PRIVACY_URL='<published HTTPS privacy-policy URL>'
+export ROUTELOOM_PRIVACY_URL='https://vvvoip.github.io/routeloom/en/privacy/'
 bash scripts/archive-apple-store.sh ios
 bash scripts/archive-apple-store.sh macos
 ```
@@ -85,6 +93,13 @@ bash scripts/archive-apple-store.sh macos
 脚本会生成本地 `.xcarchive`，打印路径并打开归档，供发布者在 Xcode 中继续分发。脚本不会上传构建、提交审核、导出签名凭据或发布下载链接。遇到构建或签名错误请立即停止，不要误发以前成功生成的旧归档。
 
 在 Xcode Organizer 中核对平台、版本、构建号、团队与 Bundle ID。在界面提供时使用 **Validate App**，再选择 **Distribute App → TestFlight & App Store**。按 Xcode 提示分别为两个平台完成签名及上传。需要拥有上传权限的 App Store Connect 角色。等待 Apple 处理构建，解决报告的问题后，再选择该构建进行测试。[上传构建](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds)
+
+## 所有者接下来的 App Store Connect 操作
+
+1. 登录组织的 App Store Connect 账户，创建或确认 RouteLoom 应用记录及 iOS/macOS 平台条目，核对发布团队和 Bundle ID。
+2. 按对应语言填写元数据草稿中的 `appStore` 字段。添加截图，并根据实际构建完成隐私、加密/出口、年龄分级及私有审核信息。
+3. 在 **Pricing and Availability → App Availability** 选择 **Specific Countries or Regions**，仅勾选 **Hong Kong** 和 **Singapore**。不要勾选未来新增国家或地区自动上架选项。保存并检查最终地区列表；修改本仓库不会自动设置这些选项。[设置 App Store 可用地区](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/manage-availability-for-your-app-on-the-app-store)
+4. 按上文生成并验证两个平台的签名归档，再通过 Organizer 上传。测试阶段使用单独的 `testFlight` 介绍及 What to Test 内容，将反馈邮箱设为 `vvvoip888@gmail.com`，完成所需外部测试审核后再邀请测试者。只有安装链接真实存在且已验证可用时，才将其添加到网站。
 
 ## 从 TestFlight 到客户正式安装
 

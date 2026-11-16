@@ -10,12 +10,20 @@ The GitHub Apple ZIP is still a source signing kit. No public RouteLoom TestFlig
 
 Development builds have connected on the owner's Mac and iPhone. The updated Mac traffic dashboard and connection test still need physical-device confirmation; sleep/wake, network changes, updates and installation on another customer's device also need validation before public distribution. Keep the existing personal testing installation while preparing the publisher's release.
 
+## Publisher details and intended first markets
+
+The publisher is **Hong Kong Tiger Telecommunications Limited**. Customer and beta support uses **vvvoip888@gmail.com**. The [English privacy policy](https://vvvoip.github.io/routeloom/en/privacy/) and [Simplified Chinese privacy policy](https://vvvoip.github.io/routeloom/zh-CN/privacy/), with matching [English support](https://vvvoip.github.io/routeloom/en/support/) and [Chinese support](https://vvvoip.github.io/routeloom/zh-CN/support/) pages, are the URLs prepared for the listings. Verify that the published pages are accessible and accurately describe the release before signing or submitting.
+
+The intended first public App Store territories are **Hong Kong and Singapore only**, with automatic availability in future territories disabled. These selections have **not yet been applied in App Store Connect**. They are a publishing plan, not an approval or legal-clearance claim. App Store availability follows the customer's **Apple Account country or region (storefront)**, rather than physical location or source IP. [Apple availability guidance](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/manage-availability-for-your-app-on-the-app-store)
+
+Use the separate production and beta texts in [apple-store-listing.json](apple-store-listing.json). This is an English (`en-US`) and Simplified Chinese (`zh-Hans`) metadata draft, not an upload or an App Store Connect API request. The beta plan is to invite testers through TestFlight after the required review. Do not present the production territory selections as a country restriction on TestFlight invitations or public links.
+
 ## Publisher account and app setup
 
 1. Confirm that the publishing team is an **Apple Developer Program organization**. Apple's VPN guideline requires organization enrollment; a working personal development certificate alone does not establish eligibility. If the account is individual, resolve enrollment with Apple before promising public VPN distribution. [App Review guideline 5.4](https://developer.apple.com/app-store/review/guidelines/#vpn-apps)
 2. Choose permanent publisher-owned bundle identifiers and create the matching App Store Connect app record/platform entries. Runner and its `.PacketTunnel` extension must use the same team and matching Network Extensions and Keychain entitlements. Check signing and provisioning for **both targets on both platforms**. Use the appropriate Apple distribution signing assets in Xcode's distribution flow. [Configure Network Extensions](https://developer.apple.com/documentation/xcode/configuring-network-extensions/)
 3. Preserve the existing team, bundle IDs and Keychain groups when updating an existing installation. Moving from a personal team to an organization may create a separate app identity; do not assume the new app can read the old app's saved profiles. Keep private profile backups available for a deliberate migration.
-4. Create real English and Simplified Chinese listing text, screenshots, support details, age-rating answers and privacy information. Verify the bundled RouteLoom icons with the publisher and prepare the required store screenshots. The publisher must supply and approve its identity, contact information, data practices and privacy-policy URL; repository examples are not a completed policy. Producing an archive alone does not make the app ready for submission.
+4. Review the English and Simplified Chinese metadata draft, verify the bundled RouteLoom icons, and prepare actual store screenshots, age-rating answers and privacy information. Confirm the publisher identity and support/privacy URLs above in App Store Connect. The publisher must approve the stated data practices for the actual release; the draft does not answer the privacy questionnaire automatically. Producing an archive alone does not make the app ready for submission.
 
 Signing credentials stay with the publisher. Do not paste Apple passwords, signing private keys, App Store Connect API private keys or private server profiles into a chat, public issue or GitHub repository. Local Xcode signing avoids exporting those credentials to CI.
 
@@ -25,7 +33,7 @@ The in-app disclosure and published privacy policy must describe the actual rele
 
 Complete App Store Connect's encryption questions for the actual implementation and intended distribution regions. RouteLoom includes Rust TLS/cryptography libraries and an encrypted local DNS cache; it is not merely an app calling the operating system's HTTPS API. Do not insert `ITSAppUsesNonExemptEncryption = false` without determining that the claim is correct. Any required documentation or classification must come from the publisher's review of its obligations. [Apple export-compliance guidance](https://developer.apple.com/help/app-store-connect/manage-app-information/overview-of-export-compliance/)
 
-Choose release territories and supply any license information Apple requires for those territories. This guide does not determine local licensing eligibility. Give App Review a dedicated, working review profile and instructions through the private review fields. Use a separate revocable test credential, keep the test server available during review, and never include that credential in release archives or public documentation. [Apple review preparation](https://developer.apple.com/app-store/review/)
+Apply the intended Hong Kong and Singapore App Store territories and supply any license information Apple requires for them. This guide does not determine local licensing eligibility. Give App Review a dedicated, working review profile and instructions through the private review fields. Use a separate revocable test credential, keep the test server available during review, and never include that credential in release archives or public documentation. [Apple review preparation](https://developer.apple.com/app-store/review/)
 
 ## Update an existing personalized checkout
 
@@ -71,11 +79,11 @@ The checkout may still display its original tag and a dirty working tree; this i
 
 For the Mac target, set **Runner → General → App Category** in Xcode (Utilities is appropriate for this client) before preparing the signed archive. This writes `LSApplicationCategoryType` to the personalized app configuration. Unsigned CI can compile without a category, but that does not complete the Mac App Store metadata requirements.
 
-Use the updated source checkout with Xcode, Flutter, Rust/rustup and Node.js installed. Sign in to Xcode using the publishing team and configure Runner and PacketTunnel first. Publish the publisher-approved privacy policy at a real, publicly accessible HTTPS URL. Replace the placeholder below with that URL; a private draft or example policy is not sufficient. The build commands retain those existing project identities. From anywhere inside the repository:
+Use the updated source checkout with Xcode, Flutter, Rust/rustup and Node.js installed. Sign in to Xcode using the publishing team and configure Runner and PacketTunnel first. Verify that the publisher-approved English privacy policy URL below is publicly accessible and links to the Chinese policy. A private draft or a page that has not been published is not sufficient. The build commands retain those existing project identities. From anywhere inside the repository:
 
 ```sh
 cd "$(git rev-parse --show-toplevel)"
-export ROUTELOOM_PRIVACY_URL='<published HTTPS privacy-policy URL>'
+export ROUTELOOM_PRIVACY_URL='https://vvvoip.github.io/routeloom/en/privacy/'
 bash scripts/archive-apple-store.sh ios
 bash scripts/archive-apple-store.sh macos
 ```
@@ -85,6 +93,13 @@ Run one platform at a time if preferred. The script prepares the platform build 
 The script creates a local `.xcarchive`, prints its location and opens it for the publisher's Xcode distribution workflow. It does not upload a build, submit a review, export signing secrets or publish a download link. Stop at the first build/signing error; do not distribute a previous successful archive by mistake.
 
 In Xcode Organizer, inspect the archive's platform, version, build number, team and bundle identifiers. Use **Validate App** where offered, then **Distribute App → TestFlight & App Store**. Follow Xcode's signing and upload steps for each platform. An App Store Connect role with upload permission is required. Wait for Apple's build processing and resolve any reported issues before selecting the build for testing. [Uploading builds](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds)
+
+## Owner's next steps in App Store Connect
+
+1. Sign in to the organization's App Store Connect account, create or confirm the RouteLoom app record and iOS/macOS platform entries, and verify the publisher's team and bundle IDs.
+2. Enter the `appStore` fields from the metadata draft in their respective locales. Add screenshots and complete the privacy, encryption/export, age-rating and private review-information fields for the actual builds.
+3. In **Pricing and Availability → App Availability**, choose **Specific Countries or Regions** and select only **Hong Kong** and **Singapore**. Leave the option to include future countries or regions unchecked. Save and inspect the resulting availability list; changing this repository does not apply these settings. [Set App Store availability](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/manage-availability-for-your-app-on-the-app-store)
+4. Prepare and validate the two signed archives above, then upload from Organizer. For beta testing, use the separate `testFlight` descriptions and What to Test fields, set the feedback email to `vvvoip888@gmail.com`, and submit the required external beta review before inviting testers. Add a website installation link only after it exists and works.
 
 ## TestFlight, then customer release
 

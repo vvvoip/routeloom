@@ -1,0 +1,109 @@
+{
+  "privacyLabel": "Privacy",
+  "supportLabel": "Support",
+  "publisherLabel": "Published by",
+  "updatedLabel": "Last updated: 16 November 2026",
+  "contentsLabel": "On this page",
+  "privacy": {
+    "title": "Privacy policy",
+    "intro": "How RouteLoom handles your profiles, network traffic and support requests.",
+    "sections": [
+      {
+        "id": "scope",
+        "title": "Who we are and what this covers",
+        "paragraphs": [
+          "Hong Kong Tiger Telecommunications Limited publishes RouteLoom and this website. Contact vvvoip888@gmail.com for support, privacy questions, access, correction or deletion requests.",
+          "This policy covers the RouteLoom application and official website. RouteLoom requires a private profile for a server selected by you or your organization. It does not include a shared public VPN account. The operator of your selected server is responsible for its operation and its own data practices; ask that operator about its infrastructure, logs and retention.",
+          "We do not sell VPN data or use or disclose it to third parties for advertising, profiling, analytics or other secondary purposes. The app has no advertising or analytics SDK. The network processing described below is needed to carry out the routing, DNS and diagnostic requests you choose."
+        ]
+      },
+      {
+        "id": "device",
+        "title": "Data stored on your device",
+        "paragraphs": [
+          "Profiles contain server addresses, authentication credentials, certificates and routing settings. Saved profiles and preferences use protected operating-system storage. A background VPN configuration retains the information needed to reconnect when the app is closed.",
+          "The traffic dashboard keeps up to 256 recent connection records in memory: destination domain or IP address, port, TCP/UDP protocol, route and matched rule, times and byte counts. It does not record request bodies, passwords or page contents. Clear closed records removes closed entries; active entries and counters remain. This in-memory history is lost when the routing engine stops.",
+          "Separately, an encrypted local DNS mapping cache stores domain-to-synthetic-address mappings to keep existing connections consistent. It persists across app restarts and profile changes. The current version has no automatic expiry or in-app full-cache deletion. Removing a profile does not erase this cache."
+        ]
+      },
+      {
+        "id": "routing",
+        "title": "What your network and server process",
+        "paragraphs": [
+          "For proxied traffic, RouteLoom encrypts the connection to the selected server. The server processes your connecting IP address, authenticated device identity, destinations and traffic needed to forward connections. Its configuration retains authorized device identifiers, token hashes and assigned tunnel addresses until its operator changes that configuration. HTTPS remains important: tunnel encryption does not turn an unencrypted destination connection into HTTPS.",
+          "Auto and Proxy modes resolve domain names through the selected server, including Auto-mode destinations whose subsequent traffic goes direct. Direct mode uses the profile’s DNS resolvers through the underlying network. A direct route therefore does not mean that the server never sees the domain name. Websites, DNS resolvers, your network provider and the selected server receive the information needed for their respective connections.",
+          "RouteLoom server software does not implement a browsing or per-destination access-history log. This is not a promise that every server or hosting provider has no logs: operating-system, firewall, resolver and hosting logs depend on the operator. The app can also produce local operating-system lifecycle and error messages."
+        ]
+      },
+      {
+        "id": "services",
+        "title": "Optional tests, updates and hosting",
+        "paragraphs": [
+          "When you press Test connection, the app makes an HTTPS request to api.ipify.org through the current route to show the public exit IP. That service receives the request and its exit IP. The app keeps the test result in memory. You can leave this test unused.",
+          "Non-store builds check GitHub for updates automatically by default and contact GitHub to download a release you select. Automatic checks normally follow a six-hour schedule; manual checks and retries may occur sooner. Requests expose ordinary connection information such as the source IP to GitHub. Automatic checks can be disabled in Settings. Apple store builds disable the GitHub updater and receive updates through Apple.",
+          "This website uses local assets and no analytics scripts, tracking cookies or browser storage. GitHub Pages hosts it and processes web requests under GitHub’s privacy statement. Following an external link opens a service with its own privacy practices. Apple handles App Store/TestFlight distribution and any diagnostics or feedback you share with Apple. These services may process data outside your country or region."
+        ],
+        "links": [
+          ["GitHub privacy statement", "https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement"],
+          ["Apple privacy policy", "https://www.apple.com/legal/privacy/"]
+        ]
+      },
+      {
+        "id": "support",
+        "title": "Contacting support",
+        "paragraphs": [
+          "Emailing vvvoip888@gmail.com shares your email address and the message or attachments you choose to send with us and our email provider, Google. We use this information to answer and investigate your request. Do not send private profiles, tokens, passwords, full browsing histories or unredacted diagnostic output. Public GitHub issues are visible to everyone.",
+          "We retain support information only as needed to handle your request and any applicable legal obligations. You can request access, correction or deletion using the same support address; we may need enough information to verify that a request concerns you. Provider-managed backups and records are subject to the provider’s retention practices."
+        ],
+        "links": [["Google privacy policy", "https://policies.google.com/privacy"]]
+      },
+      {
+        "id": "choices",
+        "title": "Your controls and deletion",
+        "paragraphs": [
+          "You can disconnect, turn off automatic reconnect, remove saved profiles and disable optional update checks. Use Restore direct internet to turn off persistent protection before removing a profile or restarting the VPN after an update. On Android, complete this in system VPN settings by turning off Always-on VPN and Block connections without VPN. Confirm that the VPN is disconnected before continuing. The operating system also lets you manage VPN permission.",
+          "Profile removal and dashboard clearing do not erase the separate encrypted DNS cache. Uninstalling may leave operating-system credential items or data. For full local-data removal, contact support for platform-specific instructions after stopping the VPN and applications using it; deleting DNS mappings during active sessions can disrupt connections.",
+          "For data held by your chosen server operator, contact that operator. RouteLoom does not provide a central customer account or upload your saved profiles or dashboard history to a publisher account. We cannot remotely erase local data on your device or records controlled by a different server operator.",
+          "We will update this page when these practices change and show the revision date above. Material changes to data handling will also be explained in the relevant release information."
+        ]
+      }
+    ]
+  },
+  "support": {
+    "title": "RouteLoom support",
+    "intro": "Help with installation, profiles and connections. Support is available in English and Simplified Chinese.",
+    "sections": [
+      {
+        "id": "contact",
+        "title": "Contact us",
+        "paragraphs": ["RouteLoom is published by Hong Kong Tiger Telecommunications Limited. Email vvvoip888@gmail.com for technical support and privacy requests. Include your device, operating-system version, RouteLoom version, selected mode and a short description of what happened. Never include private profiles, tokens or passwords."],
+        "links": [["Email support", "mailto:vvvoip888@gmail.com"], ["Report a public software issue", "https://github.com/vvvoip/routeloom/issues"]]
+      },
+      {
+        "id": "install",
+        "title": "Install and update",
+        "paragraphs": [
+          "Windows, Android and Linux preview packages are available on GitHub Releases. RouteLoom is currently experimental alpha software.",
+          "Customer installation for iPhone, iPad and Mac is being prepared through TestFlight and the App Store. No public Apple customer-install link is available yet. The current GitHub Apple signing kit is source for developers to build and sign; it is not a customer installer. When approved links are ready, we will add them to this website. Customers using those links will not need Xcode.",
+          "The planned first public App Store markets are Hong Kong and Singapore, subject to Apple review. Availability depends on the country or region of your Apple Account. These planned selections have not yet been applied in App Store Connect."
+        ],
+        "links": [["GitHub Releases", "https://github.com/vvvoip/routeloom/releases"], ["Installation guide", "https://github.com/vvvoip/routeloom/blob/main/docs/install.md"]]
+      },
+      {
+        "id": "connect",
+        "title": "Profiles and connection problems",
+        "paragraphs": [
+          "Import a private profile supplied by the operator of your RouteLoom server, allow the operating-system VPN prompt and connect. The public app download does not contain server credentials.",
+          "Auto follows your routing rules; Proxy sends captured supported traffic through the selected server; Direct uses the underlying connection. In Auto, different websites can use different routes. The Traffic tab shows captured TCP and UDP connections, their routes and counters. Encrypted DNS can make domain names unavailable.",
+          "If the dashboard is unavailable after an update, use Settings → Restore direct internet to turn off persistent protection, confirm Disconnected, then reconnect so the updated extension starts. On Android, complete this in system VPN settings by turning off Always-on VPN and Block connections without VPN. This temporarily leaves your connection unprotected by the VPN. If a connection fails, note the visible error and whether Wi-Fi changed or the device slept."
+        ]
+      },
+      {
+        "id": "privacy",
+        "title": "Privacy and safe troubleshooting",
+        "paragraphs": ["For access, correction, deletion or full local-data removal requests, use the support email. Share only the error and details needed to reproduce it. Redact server credentials and browsing information from screenshots and logs; do not post your profile in a public issue."],
+        "links": [["Read the privacy policy", "/en/privacy/"]]
+      }
+    ]
+  }
+}
