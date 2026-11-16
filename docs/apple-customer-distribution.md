@@ -69,6 +69,8 @@ The checkout may still display its original tag and a dirty working tree; this i
 
 ## Build archives on the publisher's Mac
 
+For the Mac target, set **Runner → General → App Category** in Xcode (Utilities is appropriate for this client) before preparing the signed archive. This writes `LSApplicationCategoryType` to the personalized app configuration. Unsigned CI can compile without a category, but that does not complete the Mac App Store metadata requirements.
+
 Use the updated source checkout with Xcode, Flutter, Rust/rustup and Node.js installed. Sign in to Xcode using the publishing team and configure Runner and PacketTunnel first. Publish the publisher-approved privacy policy at a real, publicly accessible HTTPS URL. Replace the placeholder below with that URL; a private draft or example policy is not sufficient. The build commands retain those existing project identities. From anywhere inside the repository:
 
 ```sh

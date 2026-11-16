@@ -69,6 +69,8 @@ ROUTELOOM_STORE_UPDATE
 
 ## 在发布者的 Mac 上生成归档
 
+Mac 目标在生成签名归档前，应先在 Xcode 的 **Runner → General → App Category** 设置应用类别（此客户端适合 Utilities／工具）。这会将 `LSApplicationCategoryType` 写入本地应用配置。未签名 CI 可以在未设置类别时完成编译，但这不代表 Mac App Store 所需元数据已经齐全。
+
 使用更新后的源码，并安装 Xcode、Flutter、Rust/rustup 和 Node.js。先在 Xcode 登录发布团队，为 Runner 与 PacketTunnel 配置签名。将发布者确认的隐私政策发布到真实、公开可访问的 HTTPS 网址，并将下面占位符替换为该网址；私有草稿或示例政策不能用于发布。构建命令保留已有项目身份。在仓库任意子目录中执行：
 
 ```sh
