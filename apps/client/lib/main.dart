@@ -2,6 +2,8 @@ import 'dart:async';
 import 'services/profile_store.dart';
 import 'widgets/features.dart';
 import 'widgets/traffic.dart';
+import 'widgets/privacy_disclosure.dart';
+import 'services/distribution.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -110,6 +112,8 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
     TargetPlatform.iOS,
   ].contains(defaultTargetPlatform);
   bool _changingMode = false;
+  bool _showingDisclosure = false;
+  bool _acceptedDisclosure = false;
   bool get _active => [
     TunnelState.connected,
     TunnelState.connecting,
@@ -186,13 +190,22 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
   }
 
   Future<void> _toggle() async {
-    if (_changingMode) return;
+    if (_changingMode || _showingDisclosure) return;
     try {
       if (_state == TunnelState.connected ||
           _state == TunnelState.connecting ||
           _state == TunnelState.reconnecting) {
         await _adapter.disconnect();
       } else {
+        if (appleStoreDistribution && !_acceptedDisclosure) {
+          _showingDisclosure = true;
+          try {
+            _acceptedDisclosure = await showVpnDataDisclosure(context);
+          } finally {
+            _showingDisclosure = false;
+          }
+          if (!mounted || !_acceptedDisclosure) return;
+        }
         await _adapter.connect(_profile!);
       }
     } catch (_) {
@@ -362,6 +375,13 @@ class _RouteLoomHomeState extends State<RouteLoomHome>
             ),
           ),
           _card(t.privacy, t.privacyDescription),
+          if (appleStoreDistribution) ...[
+            _card(
+              t.vpnDataTitle,
+              '${t.vpnDataRouting}\n\n${t.vpnDataStorage}\n\n${t.vpnDataServices}',
+              extra: const PublisherPrivacyLink(),
+            ),
+          ],
         ],
       ),
     ];

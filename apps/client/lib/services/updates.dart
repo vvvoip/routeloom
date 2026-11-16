@@ -6,6 +6,7 @@ import 'package:cryptography/cryptography.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'update_key.dart';
+import 'distribution.dart';
 
 const currentReleaseSequence = 4;
 const currentReleaseVersion = '0.4.0';
@@ -109,6 +110,7 @@ class UpdateService {
   }
 
   Future<VerifiedUpdate?> check(int minimum) async {
+    requireExternalUpdates();
     final releases =
         jsonDecode(
               utf8.decode(
@@ -154,6 +156,7 @@ class UpdateService {
   }
 
   Future<File> download(VerifiedUpdate update) async {
+    requireExternalUpdates();
     final asset = update.assets[platform] as Map<String, dynamic>;
     final location = Platform.isAndroid
         ? await const MethodChannel(
@@ -200,6 +203,7 @@ class UpdateService {
   }
 
   static Future<void> releasePage(VerifiedUpdate update) async {
+    requireExternalUpdates();
     if (!await launchUrl(update.page, mode: LaunchMode.externalApplication))
       throw StateError('Cannot open release');
   }
@@ -209,6 +213,7 @@ class UpdateService {
     File file,
     Future<void> Function() disconnect,
   ) async {
+    requireExternalUpdates();
     final asset = update.assets[platform] as Map<String, dynamic>;
     if (await file.length() != asset['size'] ||
         (await hashes.sha256.bind(file.openRead()).first).toString() !=

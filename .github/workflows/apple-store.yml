@@ -1,0 +1,59 @@
+name: Apple Store archive checks
+on:
+  pull_request:
+    paths: ['apps/client/**', 'crates/**', 'Cargo.toml', 'Cargo.lock', 'packaging/release.json', 'packaging/apple-store/**', 'scripts/archive-apple-store.sh', 'scripts/apple-store-export.py', 'scripts/test-apple-store.py', 'scripts/build-native.sh', '.github/workflows/apple-store.yml']
+  push:
+    branches: [main]
+    paths: ['apps/client/**', 'crates/**', 'Cargo.toml', 'Cargo.lock', 'packaging/release.json', 'packaging/apple-store/**', 'scripts/archive-apple-store.sh', 'scripts/apple-store-export.py', 'scripts/test-apple-store.py', 'scripts/build-native.sh', '.github/workflows/apple-store.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: apple-store-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  archive:
+    name: ${{ matrix.platform }} unsigned store archive
+    runs-on: macos-15-intel
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos, ios]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.50.0'
+          channel: stable
+          cache: true
+      - uses: dtolnay/rust-toolchain@1.100.0
+      - name: Check archive validator and shell syntax
+        run: |
+          bash -n scripts/archive-apple-store.sh
+          python3 scripts/test-apple-store.py
+      - name: Test Store controls with and without a fixture policy URL
+        working-directory: apps/client
+        run: |
+          flutter pub get
+          flutter gen-l10n
+          flutter test --dart-define=ROUTELOOM_APPLE_STORE=true --dart-define=ROUTELOOM_PRIVACY_URL=https://example.com/privacy test/apple_store_test.dart
+          flutter test --dart-define=ROUTELOOM_APPLE_STORE=true test/apple_store_test.dart
+      - name: Build and inspect unsigned archive
+        # No signing credentials or approved policy URL are supplied to CI.
+        # The validation build blocks new connections requested from the app until
+        # configured. This is not an OS-level stop for an existing On Demand VPN.
+        env:
+          ROUTELOOM_PRIVACY_URL: ''
+        run: bash scripts/archive-apple-store.sh ${{ matrix.platform }} --unsigned --no-open
+      - name: Upload structural-check reports only
+        uses: actions/upload-artifact@v4
+        with:
+          name: apple-store-${{ matrix.platform }}-check-report
+          path: .local/apple-store-*/*-archive-report.json
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14

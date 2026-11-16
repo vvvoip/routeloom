@@ -27,3 +27,4 @@ apps/client/macos/Flutter/GeneratedPluginRegistrant.swift
 
 apps/client/native/
 apps/client/android/app/src/main/jniLibs/
+**/__pycache__/
